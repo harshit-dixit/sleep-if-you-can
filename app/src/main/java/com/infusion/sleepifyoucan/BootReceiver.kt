@@ -4,24 +4,35 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.infusion.sleepifyoucan.data.AlarmScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            Log.d("BootReceiver", "Boot completed. Checking for saved alarms...")
+            Log.d("BootReceiver", "Boot completed. Rescheduling alarms...")
             
-            val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
-            val alarmTime = sharedPref.getLong("ALARM_TIME", -1L)
+            val pendingResult = goAsync()
+            val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
             
-            if (alarmTime != -1L) {
-                if (alarmTime > System.currentTimeMillis()) {
-                    Log.d("BootReceiver", "Rescheduling alarm for: $alarmTime")
-                    val scheduler = com.infusion.sleepifyoucan.data.AlarmScheduler(context)
-                    scheduler.schedule(alarmTime)
-                } else {
-                    Log.d("BootReceiver", "Saved alarm is in the past. Ignoring.")
-                    // Optional: clear it
-                    sharedPref.edit().remove("ALARM_TIME").apply()
+            scope.launch {
+                try {
+                    val app = context.applicationContext as SleepApplication
+                    val dao = app.database.alarmDao()
+                    val scheduler = AlarmScheduler(context)
+                    
+                    val enabledAlarms = dao.getEnabledAlarms()
+                    for (alarm in enabledAlarms) {
+                        Log.d("BootReceiver", "Rescheduling alarm ${alarm.id}")
+                        scheduler.schedule(alarm)
+                    }
+                } catch (e: Exception) {
+                    Log.e("BootReceiver", "Error rescheduling alarms", e)
+                } finally {
+                    pendingResult.finish()
                 }
             }
         }

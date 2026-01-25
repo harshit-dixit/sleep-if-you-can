@@ -9,7 +9,13 @@ import com.infusion.sleepifyoucan.service.RingtoneService
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val serviceIntent = Intent(context, RingtoneService::class.java)
+        // NO DB ACCESS HERE to avoid ANR/Crash
+        
+        val serviceIntent = Intent(context, RingtoneService::class.java).apply {
+            action = "START_ALARM"
+             // Forward all extras (Mission, Ringtone, ID, etc.)
+            putExtras(intent)
+        }
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             ContextCompat.startForegroundService(context, serviceIntent)

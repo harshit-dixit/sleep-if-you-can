@@ -14,23 +14,28 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.infusion.sleepifyoucan.AlarmActivity
 import com.infusion.sleepifyoucan.R
+import kotlinx.coroutines.*
 
 class RingtoneService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    
+    private var volumeJob: Job? = null
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     companion object {
         const val CHANNEL_ID = "ALARM_CHANNEL"
         const val ACTION_STOP = "STOP_ALARM"
+        const val ACTION_START = "START_ALARM"
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -65,13 +70,20 @@ class RingtoneService : Service() {
 
         createNotificationChannel()
 
+        val alarmId = intent?.getIntExtra("ALARM_ID", 0) ?: 0
+        val ringtoneUriString = intent?.getStringExtra("RINGTONE_URI")
+        val isVibrate = intent?.getBooleanExtra("IS_VIBRATE", true) ?: true
+
+        // Prepare Activity Intent
         val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+            // Forward extras to Activity
+            intent?.extras?.let { putExtras(it) }
         }
         
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0,
+            alarmId,
             fullScreenIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -87,9 +99,11 @@ class RingtoneService : Service() {
             .setFullScreenIntent(pendingIntent, true)
             .build()
 
-        startForeground(1, notification)
+        // Use Alarm ID for notification to handle concurrent alarms (rare but possible)
+        startForeground(if (alarmId != 0) alarmId else 1, notification)
 
-        startAlarm()
+        startAlarm(ringtoneUriString, isVibrate)
+        startVolumeEnforcement()
         
         // Launch Activity immediately
         startActivity(fullScreenIntent)
@@ -97,10 +111,26 @@ class RingtoneService : Service() {
         return START_STICKY
     }
 
-    private fun startAlarm() {
+    private fun startAlarm(ringtoneUriString: String?, isVibrate: Boolean) {
         try {
-            val alarmUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) 
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            // Audio Focus
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val focusRequest = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            
+            // Just request, we force volume anyway
+             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                 // Simplified focus request for brevity, main logic is volume loop
+             }
+
+            val alarmUri: Uri = if (ringtoneUriString != null) {
+                Uri.parse(ringtoneUriString)
+            } else {
+                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) 
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            }
 
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(this@RingtoneService, alarmUri)
@@ -115,21 +145,50 @@ class RingtoneService : Service() {
                 start()
             }
 
-            val vibrationPattern = longArrayOf(0, 500, 500) // Wait 0, Vibrate 500, Sleep 500
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createWaveform(vibrationPattern, 0))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(vibrationPattern, 0)
+            if (isVibrate) {
+                val vibrationPattern = longArrayOf(0, 500, 500) // Wait 0, Vibrate 500, Sleep 500
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator?.vibrate(VibrationEffect.createWaveform(vibrationPattern, 0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(vibrationPattern, 0)
+                }
             }
 
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
+    
+    private fun startVolumeEnforcement() {
+        volumeJob = scope.launch {
+            while (isActive) {
+                try {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                    val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+    
+                    if (currentVolume != maxVolume) {
+                        // The user tried to lower it! Force it back up.
+                        audioManager.setStreamVolume(
+                            AudioManager.STREAM_ALARM,
+                            maxVolume,
+                            0 // Flags: 0 avoids showing the system UI slider repeatedly
+                        )
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                delay(1000) // Check every second
+            }
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
+        volumeJob?.cancel()
+        scope.cancel() // Cancel all coroutines
+        
         mediaPlayer?.stop()
         mediaPlayer?.release()
         vibrator?.cancel()

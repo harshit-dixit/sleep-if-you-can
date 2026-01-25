@@ -12,20 +12,33 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.infusion.sleepifyoucan.data.AlarmRepository
 import com.infusion.sleepifyoucan.data.AlarmScheduler
+import com.infusion.sleepifyoucan.ui.AddEditAlarmScreen
+import com.infusion.sleepifyoucan.ui.AlarmViewModel
 import com.infusion.sleepifyoucan.ui.theme.SleepIfYouCanTheme
-import java.util.Calendar
+import com.infusion.sleepifyoucan.data.Alarm
 
 class MainActivity : ComponentActivity() {
 
@@ -33,7 +46,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            Toast.makeText(this, "Notification Permission Granted", Toast.LENGTH_SHORT).show()
+           // Good
         } else {
             Toast.makeText(this, "Permission Denied! Alarm might not show.", Toast.LENGTH_LONG).show()
         }
@@ -44,13 +57,40 @@ class MainActivity : ComponentActivity() {
         
         checkAndRequestPermissions()
 
+        val database = (application as SleepApplication).database
+        val repository = AlarmRepository(database.alarmDao(), AlarmScheduler(this))
+
         setContent {
             SleepIfYouCanTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    MainScreen()
+                val navController = rememberNavController()
+                val viewModel: AlarmViewModel = viewModel(factory = AlarmViewModel.Factory(repository))
+
+                NavHost(navController = navController, startDestination = "list") {
+                    composable("list") {
+                        AlarmListScreen(
+                            viewModel = viewModel,
+                            onAddClick = {
+                                if (checkExactAlarmPermission(this@MainActivity)) {
+                                    navController.navigate("add") 
+                                }
+                            },
+                            onAlarmClick = { alarm -> 
+                                // Edit not fully implemented in this flow for brevity, but could navigate to "edit/{id}"
+                                // keeping it simple: just list and add/delete for now, or edit via lambda
+                            }
+                        )
+                    }
+                    composable("add") {
+                        AddEditAlarmScreen(
+                            onSave = { alarm ->
+                                viewModel.insert(alarm)
+                                navController.popBackStack()
+                            },
+                            onCancel = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -68,94 +108,83 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
-    val context = LocalContext.current
-    val alarmScheduler = remember { AlarmScheduler(context) }
-    
-    // Simple state for UI demo. In real app, bind to DataStore.
-    var isAlarmSet by remember { mutableStateOf(false) }
-    
-    // TimePicker State
-    val currentTime = Calendar.getInstance()
-    val timePickerState = rememberTimePickerState(
-        initialHour = currentTime.get(Calendar.HOUR_OF_DAY),
-        initialMinute = currentTime.get(Calendar.MINUTE),
-        is24Hour = false
-    )
+fun AlarmListScreen(
+    viewModel: AlarmViewModel,
+    onAddClick: () -> Unit,
+    onAlarmClick: (Alarm) -> Unit
+) {
+    val alarms by viewModel.allAlarms.collectAsState(initial = emptyList())
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Sleep If You Can",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        TimePicker(state = timePickerState)
-        
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Button(
-            onClick = {
-                if (checkExactAlarmPermission(context)) {
-                    val calendar = Calendar.getInstance().apply {
-                        set(Calendar.HOUR_OF_DAY, timePickerState.hour)
-                        set(Calendar.MINUTE, timePickerState.minute)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                        
-                        // If time is in past, add 1 day
-                        if (timeInMillis <= System.currentTimeMillis()) {
-                            add(Calendar.DAY_OF_YEAR, 1)
-                        }
-                    }
-                    
-                    alarmScheduler.schedule(calendar.timeInMillis)
-                    
-                    // Save to SharedPreferences for BootReceiver
-                    val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
-                    with(sharedPref.edit()) {
-                        putLong("ALARM_TIME", calendar.timeInMillis)
-                        apply()
-                    }
-                    
-                    isAlarmSet = true
-                    Toast.makeText(context, "Alarm Set for ${timePickerState.hour}:${timePickerState.minute}", Toast.LENGTH_SHORT).show()
-                }
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp)
-        ) {
-            Text(text = "Set Alarm", fontSize = 18.sp)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Sleep If You Can") }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onAddClick) {
+                Icon(Icons.Default.Add, contentDescription = "Add Alarm")
+            }
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Button(
-            onClick = {
-                alarmScheduler.cancel()
-                
-                // Clear from SharedPreferences
-                val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
-                with(sharedPref.edit()) {
-                    remove("ALARM_TIME")
-                    apply()
-                }
-                
-                isAlarmSet = false
-                Toast.makeText(context, "Alarm Cancelled", Toast.LENGTH_SHORT).show()
-            },
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-            modifier = Modifier.fillMaxWidth().height(56.dp)
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(text = "Cancel Alarm", fontSize = 18.sp)
+            items(alarms) { alarm ->
+                AlarmItemCard(
+                    alarm = alarm,
+                    onToggle = { viewModel.toggleEnabled(alarm) },
+                    onDelete = { viewModel.delete(alarm) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AlarmItemCard(
+    alarm: Alarm,
+    onToggle: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = String.format("%02d:%02d", alarm.hour, alarm.minute),
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (alarm.isEnabled) MaterialTheme.colorScheme.onSurface else Color.Gray
+                )
+                if (alarm.label != null) {
+                    Text(text = alarm.label, style = MaterialTheme.typography.bodyMedium)
+                }
+                Text(
+                    text = if(alarm.daysOfWeek.isEmpty()) "One-time" else "Repeating",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+            
+            Switch(
+                checked = alarm.isEnabled,
+                onCheckedChange = { onToggle() },
+                modifier = Modifier.padding(end = 16.dp)
+            )
+            
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }
