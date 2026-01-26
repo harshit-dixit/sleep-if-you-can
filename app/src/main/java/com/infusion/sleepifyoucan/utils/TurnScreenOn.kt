@@ -11,8 +11,7 @@ fun Activity.turnScreenOnAndKeyguardOff() {
         setShowWhenLocked(true)
         setTurnScreenOn(true)
         
-        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        keyguardManager.requestDismissKeyguard(this, null)
+        // keyguardManager.requestDismissKeyguard(this, null)
     } else {
         @Suppress("DEPRECATION")
         window.addFlags(

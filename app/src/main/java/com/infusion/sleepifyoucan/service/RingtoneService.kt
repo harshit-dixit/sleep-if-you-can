@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.provider.Settings
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -105,8 +106,23 @@ class RingtoneService : Service() {
         startAlarm(ringtoneUriString, isVibrate)
         startVolumeEnforcement()
         
-        // Launch Activity immediately
-        startActivity(fullScreenIntent)
+        // --- CRITICAL FIX: The Background Start Trap ---
+        if (Settings.canDrawOverlays(this)) {
+            // Plan A: Force the Activity open (Alarmy Style)
+            // We can do this because we have the overlay permission!
+            try {
+                startActivity(fullScreenIntent)
+            } catch (e: Exception) {
+                // Fallback just in case
+                e.printStackTrace()
+            }
+        } else {
+            // Plan B: Android Standard (Heads-up Notification)
+            // We ALREADY set setFullScreenIntent on the notification above.
+            // That will show the Heads-up notification which users can tap.
+            // If the screen is off, it *might* still show the activity depending on OS/Device,
+            // but we can't force startExecutor without the permission.
+        }
 
         return START_STICKY
     }

@@ -13,6 +13,8 @@ data class Alarm(
     val daysOfWeek: List<Int> = emptyList(), // 1=Sunday, 2=Monday, ...
     val ringtoneUri: String? = null, // Null = Default
     val isVibrate: Boolean = true,
+    val isSnoozeEnabled: Boolean = true,
+    val snoozeDuration: Int = 5,
     val missionConfig: MissionConfig = MissionConfig.Shake() // Default to Shake
 )
 

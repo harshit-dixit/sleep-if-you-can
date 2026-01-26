@@ -32,14 +32,17 @@ class AlarmScheduler(private val context: Context) {
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             // PACK DATA: Serialize critical info into extras
             putExtra("ALARM_ID", alarm.id)
-            putExtra("MISSION_CONFIG_JSON", gson.toJson(Converters().fromMissionConfig(alarm.missionConfig)))
-            // Note: We use the helper directly or just wrap it. 
-            // Converters.fromMissionConfig returns a JSON string of the wrapper. Perfect.
+            putExtra("ALARM_ID", alarm.id)
+            putExtra("MISSION_CONFIG_JSON", Converters().fromMissionConfig(alarm.missionConfig))
+            // Note: We use the helper directly. 
+            // Converters.fromMissionConfig returns a JSON string. Perfect.
             
             putExtra("RINGTONE_URI", alarm.ringtoneUri)
             putExtra("LABEL", alarm.label)
             putExtra("IS_SNOOZE", isSnooze)
             putExtra("IS_VIBRATE", alarm.isVibrate)
+            putExtra("IS_SNOOZE_ENABLED", alarm.isSnoozeEnabled)
+            putExtra("SNOOZE_DURATION", alarm.snoozeDuration)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(

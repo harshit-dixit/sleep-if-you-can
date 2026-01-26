@@ -64,6 +64,8 @@ class AlarmActivity : ComponentActivity() {
              MissionConfig.Shake() // Default
         }
         val label = intent.getStringExtra("LABEL")
+        val isSnoozeEnabled = intent.getBooleanExtra("IS_SNOOZE_ENABLED", true)
+        val snoozeDuration = intent.getIntExtra("SNOOZE_DURATION", 5)
 
         shakeDetector = ShakeDetector(this)
 
@@ -75,9 +77,11 @@ class AlarmActivity : ComponentActivity() {
                 ) {
                     AlarmRingingScreen(
                         label = label,
+                        isSnoozeEnabled = isSnoozeEnabled,
+                        snoozeDuration = snoozeDuration,
                         missionConfig = missionConfig,
                         onSnooze = {
-                            snoozeAlarm(alarmId)
+                            snoozeAlarm(alarmId, snoozeDuration)
                         },
                         onDismiss = {
                             dismissAlarm(alarmId)
@@ -89,16 +93,16 @@ class AlarmActivity : ComponentActivity() {
         }
     }
 
-    private fun snoozeAlarm(alarmId: Int) {
+    private fun snoozeAlarm(alarmId: Int, durationMinutes: Int) {
         stopService()
         
-        // Schedule Snooze for 5 minutes
+        // Schedule Snooze for X minutes
         val repository = getRepository()
         lifecycleScope.launch {
             val alarm = repository.getAlarmById(alarmId)
             if (alarm != null) {
                 // Schedule snooze
-                 AlarmScheduler(this@AlarmActivity).scheduleSnooze(alarm, 5 * 60 * 1000L)
+                 AlarmScheduler(this@AlarmActivity).scheduleSnooze(alarm, durationMinutes * 60 * 1000L)
             }
             finish()
         }
@@ -154,6 +158,8 @@ class AlarmActivity : ComponentActivity() {
 @Composable
 fun AlarmRingingScreen(
     label: String?,
+    isSnoozeEnabled: Boolean,
+    snoozeDuration: Int,
     missionConfig: MissionConfig,
     onSnooze: () -> Unit,
     onDismiss: () -> Unit,
@@ -199,11 +205,13 @@ fun AlarmRingingScreen(
                     Text("DISMISS", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 }
                 
-                OutlinedButton(
-                    onClick = onSnooze,
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                ) {
-                    Text("SNOOZE (5 min)", fontSize = 18.sp)
+                if (isSnoozeEnabled) {
+                    OutlinedButton(
+                        onClick = onSnooze,
+                        modifier = Modifier.fillMaxWidth().height(56.dp)
+                    ) {
+                        Text("SNOOZE ($snoozeDuration min)", fontSize = 18.sp)
+                    }
                 }
             }
             

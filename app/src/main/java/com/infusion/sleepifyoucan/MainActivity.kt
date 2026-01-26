@@ -71,19 +71,43 @@ class MainActivity : ComponentActivity() {
                             viewModel = viewModel,
                             onAddClick = {
                                 if (checkExactAlarmPermission(this@MainActivity)) {
-                                    navController.navigate("add") 
+                                    navController.navigate("add_edit") 
                                 }
                             },
                             onAlarmClick = { alarm -> 
-                                // Edit not fully implemented in this flow for brevity, but could navigate to "edit/{id}"
-                                // keeping it simple: just list and add/delete for now, or edit via lambda
+                                // Navigate to Edit with ID
+                                navController.navigate("add_edit?alarmId=${alarm.id}")
                             }
                         )
                     }
-                    composable("add") {
+                    composable(
+                        "add_edit?alarmId={alarmId}",
+                        arguments = listOf(androidx.navigation.navArgument("alarmId") { 
+                            defaultValue = -1 
+                            type = androidx.navigation.NavType.IntType
+                        })
+                    ) { backStackEntry ->
+                        val alarmId = backStackEntry.arguments?.getInt("alarmId") ?: -1
+                        val alarmToEdit = if (alarmId != -1) {
+                            // Find alarm from list (synchronously from viewModel cache would be ideal, 
+                            // but for now let's just collect the list or fetch it.
+                            // Better: Pass the alarm object or fetch by ID in ViewModel.
+                            // Simplest for now: Fetch from ViewModel flow (might be null initially if loading) or passed list??
+                            // Re-querying is safest.
+                            // Actually, let's just get it from the ViewModel list if available.
+                            // But `allAlarms` is a Flow.
+                            // Let's create a getById in ViewModel or just filter here (simple but robust enough for MVP)
+                            viewModel.allAlarms.collectAsState(initial = emptyList()).value.find { it.id == alarmId }
+                        } else null
+                        
                         AddEditAlarmScreen(
+                            alarm = alarmToEdit,
                             onSave = { alarm ->
-                                viewModel.insert(alarm)
+                                if (alarmId != -1) {
+                                    viewModel.update(alarm)
+                                } else {
+                                    viewModel.insert(alarm)
+                                }
                                 navController.popBackStack()
                             },
                             onCancel = {
@@ -102,6 +126,17 @@ class MainActivity : ComponentActivity() {
                 != PackageManager.PERMISSION_GRANTED) {
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+        
+        // Critical: Overlay Permission for Alarm
+        if (!Settings.canDrawOverlays(this)) {
+            // Show toast and redirect (In a real app, use a Dialog explanation)
+            Toast.makeText(this, "Please grant 'Display over other apps' to allow alarm to show.", Toast.LENGTH_LONG).show()
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                android.net.Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
         }
     }
 }

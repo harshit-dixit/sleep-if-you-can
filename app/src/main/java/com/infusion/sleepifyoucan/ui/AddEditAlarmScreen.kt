@@ -67,6 +67,10 @@ fun AddEditAlarmScreen(
     // Mission Fields
     var missionType by remember { mutableStateOf<MissionType>(getMissionType(alarm?.missionConfig)) }
     
+    // Snooze Fields
+    var isSnoozeEnabled by remember { mutableStateOf(alarm?.isSnoozeEnabled ?: true) }
+    var snoozeDuration by remember { mutableIntStateOf(alarm?.snoozeDuration ?: 5) }
+    
     // Mission Config State
     var shakeTarget by remember { mutableIntStateOf((alarm?.missionConfig as? MissionConfig.Shake)?.targetShakes ?: 20) }
     var mathDifficulty by remember { mutableStateOf((alarm?.missionConfig as? MissionConfig.Math)?.difficulty ?: Difficulty.EASY) }
@@ -120,6 +124,8 @@ fun AddEditAlarmScreen(
                             label = label.ifBlank { null },
                             ringtoneUri = ringtoneUri,
                             isVibrate = isVibrate,
+                            isSnoozeEnabled = isSnoozeEnabled,
+                            snoozeDuration = snoozeDuration,
                             missionConfig = config,
                             isEnabled = true
                         )
@@ -128,7 +134,7 @@ fun AddEditAlarmScreen(
                         Icon(Icons.Default.Check, contentDescription = "Save")
                     }
                 }
-            )
+             )
         }
     ) { padding ->
         Column(
@@ -196,6 +202,38 @@ fun AddEditAlarmScreen(
                         label = { Text("Label") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Snooze Settings
+            Text("Snooze Settings", style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.Start))
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Enable Snooze", modifier = Modifier.weight(1f))
+                        Switch(checked = isSnoozeEnabled, onCheckedChange = { isSnoozeEnabled = it })
+                    }
+                    
+                    if (isSnoozeEnabled) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                        Text("Duration")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(1, 5, 10, 20).forEach { mins ->
+                                FilterChip(
+                                    selected = snoozeDuration == mins,
+                                    onClick = { snoozeDuration = mins },
+                                    label = { Text("$mins m") }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
