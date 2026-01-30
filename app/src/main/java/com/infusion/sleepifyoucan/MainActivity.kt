@@ -12,10 +12,12 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -23,11 +25,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -35,10 +35,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.infusion.sleepifyoucan.data.AlarmRepository
 import com.infusion.sleepifyoucan.data.AlarmScheduler
-import com.infusion.sleepifyoucan.ui.AddEditAlarmScreen
-import com.infusion.sleepifyoucan.ui.AlarmViewModel
-import com.infusion.sleepifyoucan.ui.theme.SleepIfYouCanTheme
+import com.infusion.sleepifyoucan.data.StreakRepository
+import com.infusion.sleepifyoucan.ui.*
+import com.infusion.sleepifyoucan.ui.theme.*
 import com.infusion.sleepifyoucan.data.Alarm
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -58,62 +59,121 @@ class MainActivity : ComponentActivity() {
         checkAndRequestPermissions()
 
         val database = (application as SleepApplication).database
-        val repository = AlarmRepository(database.alarmDao(), AlarmScheduler(this))
+        val alarmRepository = AlarmRepository(database.alarmDao(), AlarmScheduler(this))
+        val streakRepository = StreakRepository(database.streakDao(), this)
 
         setContent {
             SleepIfYouCanTheme {
                 val navController = rememberNavController()
-                val viewModel: AlarmViewModel = viewModel(factory = AlarmViewModel.Factory(repository))
-
-                NavHost(navController = navController, startDestination = "list") {
-                    composable("list") {
-                        AlarmListScreen(
-                            viewModel = viewModel,
-                            onAddClick = {
-                                if (checkExactAlarmPermission(this@MainActivity)) {
-                                    navController.navigate("add_edit") 
-                                }
-                            },
-                            onAlarmClick = { alarm -> 
-                                // Navigate to Edit with ID
-                                navController.navigate("add_edit?alarmId=${alarm.id}")
-                            }
-                        )
+                val viewModel: AlarmViewModel = viewModel(factory = AlarmViewModel.Factory(alarmRepository))
+                
+                // Track current selected tab
+                var selectedTab by remember { mutableStateOf(NavigationTab.HOME) }
+                
+                // Collect alarms
+                val alarms by viewModel.allAlarms.collectAsState(initial = emptyList())
+                val nextAlarm = alarms.filter { it.isEnabled }.minByOrNull { 
+                    it.hour * 60 + it.minute 
+                }
+                
+                // Streak data
+                var currentStreak by remember { mutableIntStateOf(0) }
+                var weeklyProgress by remember { mutableStateOf<Map<Long, Boolean>>(emptyMap()) }
+                var motivationalMessage by remember { mutableStateOf("Start your streak today!") }
+                
+                // Load streak data
+                val scope = rememberCoroutineScope()
+                LaunchedEffect(Unit) {
+                    scope.launch {
+                        currentStreak = streakRepository.getCurrentStreakCount()
+                        weeklyProgress = streakRepository.getWeeklyProgress()
+                        motivationalMessage = streakRepository.getMotivationalMessage()
                     }
-                    composable(
-                        "add_edit?alarmId={alarmId}",
-                        arguments = listOf(androidx.navigation.navArgument("alarmId") { 
-                            defaultValue = -1 
-                            type = androidx.navigation.NavType.IntType
-                        })
-                    ) { backStackEntry ->
-                        val alarmId = backStackEntry.arguments?.getInt("alarmId") ?: -1
-                        val alarmToEdit = if (alarmId != -1) {
-                            // Find alarm from list (synchronously from viewModel cache would be ideal, 
-                            // but for now let's just collect the list or fetch it.
-                            // Better: Pass the alarm object or fetch by ID in ViewModel.
-                            // Simplest for now: Fetch from ViewModel flow (might be null initially if loading) or passed list??
-                            // Re-querying is safest.
-                            // Actually, let's just get it from the ViewModel list if available.
-                            // But `allAlarms` is a Flow.
-                            // Let's create a getById in ViewModel or just filter here (simple but robust enough for MVP)
-                            viewModel.allAlarms.collectAsState(initial = emptyList()).value.find { it.id == alarmId }
-                        } else null
-                        
-                        AddEditAlarmScreen(
-                            alarm = alarmToEdit,
-                            onSave = { alarm ->
-                                if (alarmId != -1) {
-                                    viewModel.update(alarm)
-                                } else {
-                                    viewModel.insert(alarm)
-                                }
-                                navController.popBackStack()
-                            },
-                            onCancel = {
-                                navController.popBackStack()
-                            }
+                }
+
+                Scaffold(
+                    containerColor = BlackMute,
+                    bottomBar = {
+                        AppBottomNavigation(
+                            selectedTab = selectedTab,
+                            onTabSelected = { selectedTab = it }
                         )
+                    },
+                    floatingActionButton = {
+                        if (selectedTab == NavigationTab.ALARMS) {
+                            FloatingActionButton(
+                                onClick = {
+                                    if (checkExactAlarmPermission(this@MainActivity)) {
+                                        navController.navigate("add_edit")
+                                    }
+                                },
+                                containerColor = PurpleNight,
+                                contentColor = TextPrimary
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Alarm")
+                            }
+                        }
+                    }
+                ) { padding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = "main",
+                        modifier = Modifier.padding(padding)
+                    ) {
+                        composable("main") {
+                            when (selectedTab) {
+                                NavigationTab.HOME -> {
+                                    HomeScreen(
+                                        nextAlarm = nextAlarm,
+                                        currentStreak = currentStreak,
+                                        onAlarmClick = { selectedTab = NavigationTab.ALARMS },
+                                        onEditSleepTime = { /* TODO: Implement sleep time editor */ }
+                                    )
+                                }
+                                NavigationTab.ALARMS -> {
+                                    AlarmListScreen(
+                                        viewModel = viewModel,
+                                        onAlarmClick = { alarm ->
+                                            navController.navigate("add_edit?alarmId=${alarm.id}")
+                                        }
+                                    )
+                                }
+                                NavigationTab.STREAK -> {
+                                    StreakScreen(
+                                        currentStreak = currentStreak,
+                                        weeklyProgress = weeklyProgress,
+                                        motivationalMessage = motivationalMessage
+                                    )
+                                }
+                            }
+                        }
+                        composable(
+                            "add_edit?alarmId={alarmId}",
+                            arguments = listOf(androidx.navigation.navArgument("alarmId") { 
+                                defaultValue = -1 
+                                type = androidx.navigation.NavType.IntType
+                            })
+                        ) { backStackEntry ->
+                            val alarmId = backStackEntry.arguments?.getInt("alarmId") ?: -1
+                            val alarmToEdit = if (alarmId != -1) {
+                                viewModel.allAlarms.collectAsState(initial = emptyList()).value.find { it.id == alarmId }
+                            } else null
+                            
+                            AddEditAlarmScreen(
+                                alarm = alarmToEdit,
+                                onSave = { alarm ->
+                                    if (alarmId != -1) {
+                                        viewModel.update(alarm)
+                                    } else {
+                                        viewModel.insert(alarm)
+                                    }
+                                    navController.popBackStack()
+                                },
+                                onCancel = {
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -130,7 +190,6 @@ class MainActivity : ComponentActivity() {
         
         // Critical: Overlay Permission for Alarm
         if (!Settings.canDrawOverlays(this)) {
-            // Show toast and redirect (In a real app, use a Dialog explanation)
             Toast.makeText(this, "Please grant 'Display over other apps' to allow alarm to show.", Toast.LENGTH_LONG).show()
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -141,52 +200,86 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Redesigned Alarm List Screen with cards matching the app theme.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmListScreen(
     viewModel: AlarmViewModel,
-    onAddClick: () -> Unit,
     onAlarmClick: (Alarm) -> Unit
 ) {
     val alarms by viewModel.allAlarms.collectAsState(initial = emptyList())
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Sleep If You Can") }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddClick) {
-                Icon(Icons.Default.Add, contentDescription = "Add Alarm")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BlackMute)
+            .padding(horizontal = 16.dp)
+    ) {
+        // Header
+        Text(
+            text = "Alarms",
+            style = MaterialTheme.typography.headlineLarge,
+            color = TextPrimary,
+            modifier = Modifier.padding(vertical = 24.dp)
+        )
+        
+        if (alarms.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "No alarms yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Tap + to create your first alarm",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextDisabled
+                    )
+                }
             }
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(alarms) { alarm ->
-                AlarmItemCard(
-                    alarm = alarm,
-                    onToggle = { viewModel.toggleEnabled(alarm) },
-                    onDelete = { viewModel.delete(alarm) }
-                )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 80.dp)
+            ) {
+                items(alarms) { alarm ->
+                    AlarmItemCard(
+                        alarm = alarm,
+                        onClick = { onAlarmClick(alarm) },
+                        onToggle = { viewModel.toggleEnabled(alarm) },
+                        onDelete = { viewModel.delete(alarm) }
+                    )
+                }
             }
         }
     }
 }
 
+/**
+ * Redesigned Alarm Item Card with modern styling.
+ */
 @Composable
 fun AlarmItemCard(
     alarm: Alarm,
+    onClick: () -> Unit,
     onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = BlackMuteSurface
+        ),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier
@@ -197,28 +290,51 @@ fun AlarmItemCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = String.format("%02d:%02d", alarm.hour, alarm.minute),
-                    fontSize = 32.sp,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (alarm.isEnabled) MaterialTheme.colorScheme.onSurface else Color.Gray
+                    color = if (alarm.isEnabled) TextPrimary else TextDisabled
                 )
-                if (alarm.label != null) {
-                    Text(text = alarm.label, style = MaterialTheme.typography.bodyMedium)
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Row {
+                    if (alarm.label != null) {
+                        Text(
+                            text = alarm.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = " • ",
+                            color = TextDisabled
+                        )
+                    }
+                    Text(
+                        text = if(alarm.daysOfWeek.isEmpty()) "One-time" else "Repeating",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextDisabled
+                    )
                 }
-                Text(
-                    text = if(alarm.daysOfWeek.isEmpty()) "One-time" else "Repeating",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
             }
             
             Switch(
                 checked = alarm.isEnabled,
                 onCheckedChange = { onToggle() },
-                modifier = Modifier.padding(end = 16.dp)
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = PurpleNight,
+                    checkedTrackColor = PurpleNight.copy(alpha = 0.3f),
+                    uncheckedThumbColor = TextDisabled,
+                    uncheckedTrackColor = BlackMuteDark
+                ),
+                modifier = Modifier.padding(end = 8.dp)
             )
             
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = OrangeJuice.copy(alpha = 0.8f)
+                )
             }
         }
     }

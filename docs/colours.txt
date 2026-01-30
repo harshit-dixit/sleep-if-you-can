@@ -1,0 +1,25 @@
+Designing an Alarmy-like app is really a psychology project disguised as UI work. Colors should nudge the brain from “leave me alone” to “fine, I am awake now”. Your palette is well suited for that.
+
+Start with Black Mute (#203060) as the foundation. Use it as the primary background for night mode and alarm screens. It is dark without being dead black, so the screen feels calm but serious. When the alarm fires, this color makes everything else feel urgent by contrast.
+
+Purple Night (#5981F0) works beautifully as your primary action color. Use it for the main “Start Mission” button, selected tabs, progress indicators, and the active ring around the alarm. It is alert without screaming, which matters at 6 AM when rage is only one vibration away.
+
+Orange Juice (#FF7743) is your aggression lever. Use it sparingly and intentionally. This is the color for countdown timers, incorrect math answers, warning text like “Wake up now”, or the final 5 seconds before snooze locks. The brain reads this as urgency and heat.
+
+Yellow Sand (#F4B46C) is encouragement. Streak counts, success messages, small celebratory icons, and completion badges should glow in this color. When the user finishes a mission, this is the “you did it” warmth, not the Purple Night command tone.
+
+Green Land (#16BCC0) signals correctness and progress. Use it for correct math answers, successful shakes, progress bars filling up, and streak continuity indicators. It pairs well with Purple Night for showing movement from task to success.
+
+Now map this to features.
+
+For the alarm ringing screen, keep the background Black Mute. The mission card sits on top with subtle elevation. The main call to action button is Purple Night. If the user hesitates or fails, Orange Juice starts appearing in timers or borders to increase pressure.
+
+For math missions, show questions in white or off white text on Black Mute. Correct answers flash Green Land briefly. Wrong answers trigger a quick Orange Juice pulse. Avoid animations that feel playful, this is cognitive friction by design.
+
+For shake missions, use Green Land for progress feedback, like a ring filling as shakes register. When the user slows down, introduce Orange Juice hints like “Shake harder”.
+
+For the streak system, Yellow Sand should dominate. Daily streak count, flame icons, and milestone celebrations should live in this color. It builds emotional attachment. Purple Night can frame the streak card, keeping it grounded.
+
+For navigation and settings, stay calm. Black Mute background, Purple Night for selected icons, Green Land for toggles that are on. Orange and Yellow should barely appear here, otherwise the app feels anxious all the time.
+
+One important rule: never let Orange Juice be everywhere. Urgency loses power if it is constant. Let calm dominate, let pressure appear only when it matters.

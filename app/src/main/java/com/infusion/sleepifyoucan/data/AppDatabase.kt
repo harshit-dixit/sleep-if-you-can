@@ -6,10 +6,15 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [Alarm::class], version = 2, exportSchema = false)
+@Database(
+    entities = [Alarm::class, Streak::class],
+    version = 3,
+    exportSchema = false
+)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
+    abstract fun streakDao(): StreakDao
 
     companion object {
         @Volatile
@@ -30,3 +35,4 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
+
