@@ -110,10 +110,10 @@ fun AddEditAlarmScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        // Construct Logic
                         val config = when (missionType) {
                             MissionType.SHAKE -> MissionConfig.Shake(shakeTarget)
                             MissionType.MATH -> MissionConfig.Math(mathDifficulty, mathCount)
+                            MissionType.MEMORY -> MissionConfig.Memory(4) // Default to 4x4
                         }
                         
                         val newAlarm = Alarm(
@@ -286,6 +286,9 @@ fun AddEditAlarmScreen(
                                 )
                             }
                         }
+                    } else if (missionType == MissionType.MEMORY) {
+                        Text("Memory Match - 4x4 Grid")
+                        // No extra config for now
                     }
                 }
             }
@@ -343,13 +346,14 @@ fun WeekDaySelector(
 }
 
 enum class MissionType {
-    SHAKE, MATH
+    SHAKE, MATH, MEMORY
 }
 
 fun getMissionType(config: MissionConfig?): MissionType {
     return when (config) {
         is MissionConfig.Shake -> MissionType.SHAKE
         is MissionConfig.Math -> MissionType.MATH
+        is MissionConfig.Memory -> MissionType.MEMORY
         else -> MissionType.SHAKE
     }
 }

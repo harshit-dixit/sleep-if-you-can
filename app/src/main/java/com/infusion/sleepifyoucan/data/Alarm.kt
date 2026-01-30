@@ -21,6 +21,7 @@ data class Alarm(
 sealed class MissionConfig {
     data class Shake(val targetShakes: Int = 20) : MissionConfig()
     data class Math(val difficulty: Difficulty = Difficulty.EASY, val problemCount: Int = 3) : MissionConfig()
+    data class Memory(val gridSize: Int = 4) : MissionConfig()
     // Add more missions here (e.g. Photo, Barcode) logic later
 }
 

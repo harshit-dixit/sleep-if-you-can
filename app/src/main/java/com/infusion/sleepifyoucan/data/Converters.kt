@@ -45,16 +45,19 @@ data class MissionConfigWrapper(
     val type: String,
     val shakeTarget: Int? = null,
     val mathDifficulty: String? = null,
-    val mathCount: Int? = null
+    val mathCount: Int? = null,
+    val memoryGridSize: Int? = null
 ) {
     constructor(config: MissionConfig) : this(
         type = when (config) {
             is MissionConfig.Shake -> "SHAKE"
             is MissionConfig.Math -> "MATH"
+            is MissionConfig.Memory -> "MEMORY"
         },
         shakeTarget = if (config is MissionConfig.Shake) config.targetShakes else null,
         mathDifficulty = if (config is MissionConfig.Math) config.difficulty.name else null,
-        mathCount = if (config is MissionConfig.Math) config.problemCount else null
+        mathCount = if (config is MissionConfig.Math) config.problemCount else null,
+        memoryGridSize = if (config is MissionConfig.Memory) config.gridSize else null
     )
 
     fun toMissionConfig(): MissionConfig {
@@ -64,6 +67,7 @@ data class MissionConfigWrapper(
                 Difficulty.valueOf(mathDifficulty ?: "EASY"),
                 mathCount ?: 3
             )
+            "MEMORY" -> MissionConfig.Memory(memoryGridSize ?: 4)
             else -> MissionConfig.Shake(20) // Fallback
         }
     }
