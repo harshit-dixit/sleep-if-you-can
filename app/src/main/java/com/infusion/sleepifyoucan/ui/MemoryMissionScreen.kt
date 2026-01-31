@@ -12,12 +12,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,13 +29,37 @@ fun MemoryMissionScreen(
     state: MissionState.Memory,
     onCardClick: (Int) -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BlackMute)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    val view = LocalView.current
+    var flashColor by remember { mutableStateOf(Color.Transparent) }
+    var previousMatchedPairs by remember { mutableIntStateOf(state.matchedPairs) }
+    
+    // Flash green on match
+    LaunchedEffect(state.matchedPairs) {
+        if (state.matchedPairs > previousMatchedPairs) {
+            // Match found!
+            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+            flashColor = GreenLand.copy(alpha = 0.3f)
+            kotlinx.coroutines.delay(300)
+            flashColor = Color.Transparent
+        }
+        previousMatchedPairs = state.matchedPairs
+    }
+    
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Flash overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(flashColor)
+        )
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BlackMute)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Spacer(modifier = Modifier.height(48.dp))
         
         Text(
@@ -74,7 +98,8 @@ fun MemoryMissionScreen(
                 )
             }
         }
-    }
+        } // Close Column
+    } // Close outer Box
 }
 
 @Composable

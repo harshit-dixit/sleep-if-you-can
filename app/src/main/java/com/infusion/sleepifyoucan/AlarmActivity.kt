@@ -3,6 +3,8 @@ package com.infusion.sleepifyoucan
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -116,6 +118,27 @@ class AlarmActivity : ComponentActivity() {
             return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+    
+    override fun onStop() {
+        super.onStop()
+        val missionState = viewModel.missionState.value
+        // If user leaves during an active mission (not Initial or Completed), count as escape
+        if (missionState !is MissionState.Completed && missionState !is MissionState.Initial) {
+            val alarmId = intent.getIntExtra("ALARM_ID", 0)
+            RingtoneService.recordEscape(alarmId)
+            
+            // Re-launch the activity to bring user back
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (!isFinishing && !isDestroyed) {
+                    val relaunchIntent = Intent(this, AlarmActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        intent.extras?.let { putExtras(it) }
+                    }
+                    startActivity(relaunchIntent)
+                }
+            }, 500)
+        }
     }
     
     override fun onDestroy() {

@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.infusion.sleepifyoucan.utils.ShakeDetector
@@ -44,23 +46,46 @@ fun ShakeMissionScreen(
         }
     }
     
-    // Stop on dispose is handled by ShakeDetector.start implementation usually replacing listener, 
-    // or explicit stop? The extraction shows `shakeDetector.start`. 
-    // `ShakeDetector` likely handles one listener.
+    // Haptic feedback on shake
+    val view = LocalView.current
+    var flashColor by remember { mutableStateOf(Color.Transparent) }
+    
+    // Flash green when complete
+    LaunchedEffect(currentShakes) {
+        if (currentShakes > 0) {
+            // Haptic on each shake
+            view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+        }
+        if (currentShakes >= targetShakes) {
+            // Celebration flash
+            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+            flashColor = GreenLand.copy(alpha = 0.5f)
+            kotlinx.coroutines.delay(300)
+            flashColor = Color.Transparent
+        }
+    }
 
     val progress by animateFloatAsState(
         targetValue = currentShakes.toFloat() / targetShakes.toFloat(),
         label = "Progress"
     )
     
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BlackMute)
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Flash overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(flashColor)
+        )
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BlackMute)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Text(
             "SHAKE IT!",
             style = MaterialTheme.typography.headlineLarge,
@@ -93,7 +118,8 @@ fun ShakeMissionScreen(
                 color = TextSecondary
             )
         }
-    }
+        } // Close Column
+    } // Close outer Box
 }
 
 /**

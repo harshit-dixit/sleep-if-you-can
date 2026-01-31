@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -74,7 +76,7 @@ enum class NavigationTab(
     ),
     STREAK(
         title = "Streak",
-        selectedIcon = Icons.Filled.Notifications, // Will replace with flame icon
-        unselectedIcon = Icons.Outlined.Notifications
+        selectedIcon = Icons.Filled.Star,
+        unselectedIcon = Icons.Outlined.Star
     )
 }

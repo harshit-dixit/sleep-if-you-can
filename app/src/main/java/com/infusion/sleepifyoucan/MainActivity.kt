@@ -39,6 +39,7 @@ import com.infusion.sleepifyoucan.data.StreakRepository
 import com.infusion.sleepifyoucan.ui.*
 import com.infusion.sleepifyoucan.ui.theme.*
 import com.infusion.sleepifyoucan.data.Alarm
+import com.infusion.sleepifyoucan.data.AppPreferences
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -66,6 +67,7 @@ class MainActivity : ComponentActivity() {
             SleepIfYouCanTheme {
                 val navController = rememberNavController()
                 val viewModel: AlarmViewModel = viewModel(factory = AlarmViewModel.Factory(alarmRepository))
+                val settingsViewModel: SettingsViewModel = viewModel()
                 
                 // Track current selected tab
                 var selectedTab by remember { mutableStateOf(NavigationTab.HOME) }
@@ -127,7 +129,8 @@ class MainActivity : ComponentActivity() {
                                         nextAlarm = nextAlarm,
                                         currentStreak = currentStreak,
                                         onAlarmClick = { selectedTab = NavigationTab.ALARMS },
-                                        onEditSleepTime = { /* TODO: Implement sleep time editor */ }
+                                        onEditSleepTime = { /* TODO */ },
+                                        onSettingsClick = { navController.navigate("settings") }
                                     )
                                 }
                                 NavigationTab.ALARMS -> {
@@ -172,6 +175,19 @@ class MainActivity : ComponentActivity() {
                                 onCancel = {
                                     navController.popBackStack()
                                 }
+                            )
+                        }
+                        
+                        // Settings Screen
+                        composable("settings") {
+                            val preferences by settingsViewModel.preferences.collectAsState()
+                            
+                            SettingsScreen(
+                                preferences = preferences,
+                                onMissionAudioChange = { settingsViewModel.updateMissionAudioBehavior(it) },
+                                onEscapeModeChange = { settingsViewModel.updateEscapePreventionMode(it) },
+                                onVolumeEscalationChange = { settingsViewModel.updateVolumeEscalation(it) },
+                                onBack = { navController.popBackStack() }
                             )
                         }
                     }

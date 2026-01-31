@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,15 +39,34 @@ fun HomeScreen(
     sleepTimeMinutes: Int = 30,
     onAlarmClick: () -> Unit,
     onEditSleepTime: () -> Unit,
+    onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(BlackMute)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Settings button in top right
+        IconButton(
+            onClick = onSettingsClick,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Icon(
+                Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = TextSecondary
+            )
+        }
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Spacer(modifier = Modifier.height(32.dp))
         
         // Moon and Stars Illustration
@@ -98,7 +118,8 @@ fun HomeScreen(
         }
         
         Spacer(modifier = Modifier.weight(1f))
-    }
+        } // Close Column
+    } // Close Box
 }
 
 /**

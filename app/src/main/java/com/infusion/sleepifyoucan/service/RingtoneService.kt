@@ -37,6 +37,45 @@ class RingtoneService : Service() {
         const val CHANNEL_ID = "ALARM_CHANNEL"
         const val ACTION_STOP = "STOP_ALARM"
         const val ACTION_START = "START_ALARM"
+        
+        // Escape tracking for penalty system
+        private var escapeCount = 0
+        private var currentAlarmId: Int = 0
+        
+        /**
+         * Record an escape attempt when user leaves the alarm activity.
+         */
+        fun recordEscape(alarmId: Int) {
+            if (alarmId == currentAlarmId) {
+                escapeCount++
+            }
+        }
+        
+        /**
+         * Get the penalty multiplier based on escape attempts.
+         * Returns additional challenges to add to the mission.
+         */
+        fun getEscapePenalty(): Int {
+            return when (escapeCount) {
+                0 -> 0
+                1 -> 2  // +2 extra problems or shakes
+                2 -> 5  // +5 extra
+                else -> 10 // Maximum penalty
+            }
+        }
+        
+        /**
+         * Reset escape tracking for a new alarm.
+         */
+        fun resetForNewAlarm(alarmId: Int) {
+            currentAlarmId = alarmId
+            escapeCount = 0
+        }
+        
+        /**
+         * Check if there was an escape attempt.
+         */
+        fun hasEscapeAttempt(): Boolean = escapeCount > 0
     }
 
     override fun onBind(intent: Intent?): IBinder? {

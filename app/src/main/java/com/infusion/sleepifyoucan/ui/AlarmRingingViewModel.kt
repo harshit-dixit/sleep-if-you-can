@@ -9,6 +9,7 @@ import com.infusion.sleepifyoucan.data.Alarm
 import com.infusion.sleepifyoucan.data.AlarmRepository
 import com.infusion.sleepifyoucan.data.MissionConfig
 import com.infusion.sleepifyoucan.data.StreakRepository
+import com.infusion.sleepifyoucan.service.RingtoneService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,12 +71,17 @@ class AlarmRingingViewModel(
     // initialize mission if needed
     fun initializeMission() {
         if (_missionState.value is MissionState.Initial) {
+            // Get escape penalty (additional challenges if user tried to escape)
+            val penalty = RingtoneService.getEscapePenalty()
+            
             val newState = when (missionConfig) {
-                is MissionConfig.Shake -> MissionState.Shake(missionConfig.targetShakes)
+                is MissionConfig.Shake -> MissionState.Shake(
+                    target = missionConfig.targetShakes + (penalty * 5) // +5 shakes per escape level
+                )
                 is MissionConfig.Math -> MissionState.Math(
-                    missionConfig.difficulty.name,
-                    0,
-                    missionConfig.problemCount
+                    difficulty = missionConfig.difficulty.name,
+                    solveCount = 0,
+                    totalProblems = missionConfig.problemCount + penalty // +1-10 extra problems
                 )
                 is MissionConfig.Memory -> {
                     val cards = generateMemoryCards(missionConfig.gridSize)

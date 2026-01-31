@@ -1,6 +1,7 @@
 package com.infusion.sleepifyoucan.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -13,8 +14,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.content.Context
 import com.infusion.sleepifyoucan.data.Difficulty
 import com.infusion.sleepifyoucan.data.MissionConfig
 import com.infusion.sleepifyoucan.ui.theme.*
@@ -52,6 +62,58 @@ fun MathMissionScreen(
     var isError by remember { mutableStateOf(false) }
     var showSuccess by remember { mutableStateOf(false) }
     
+    // Screen flash color state
+    var flashColor by remember { mutableStateOf(Color.Transparent) }
+    
+    // Shake animation
+    val shakeOffset = remember { Animatable(0f) }
+    
+    // Context for haptic feedback
+    val context = LocalContext.current
+    val view = LocalView.current
+    
+    // Trigger shake animation on error
+    LaunchedEffect(isError) {
+        if (isError) {
+            // Haptic feedback
+            view.performHapticFeedback(android.view.HapticFeedbackConstants.REJECT)
+            
+            // Flash red
+            flashColor = OrangeJuice.copy(alpha = 0.4f)
+            
+            // Shake animation
+            shakeOffset.animateTo(
+                targetValue = 0f,
+                animationSpec = keyframes {
+                    durationMillis = 400
+                    -20f at 50
+                    20f at 100
+                    -15f at 150
+                    15f at 200
+                    -10f at 250
+                    10f at 300
+                    0f at 400
+                }
+            )
+            
+            // Clear flash
+            flashColor = Color.Transparent
+        }
+    }
+    
+    // Trigger success flash
+    LaunchedEffect(showSuccess) {
+        if (showSuccess) {
+            // Haptic feedback
+            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+            
+            // Flash green
+            flashColor = GreenLand.copy(alpha = 0.4f)
+            kotlinx.coroutines.delay(300)
+            flashColor = Color.Transparent
+        }
+    }
+    
     // Animate background color on correct/wrong answer
     val inputBackgroundColor by animateColorAsState(
         targetValue = when {
@@ -62,11 +124,19 @@ fun MathMissionScreen(
         label = "InputBg"
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BlackMute)
-            .padding(16.dp),
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Flash overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(flashColor)
+        )
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { translationX = shakeOffset.value }
+                .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(48.dp))
@@ -135,6 +205,7 @@ fun MathMissionScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
     }
+    } // Close outer Box
 }
 
 @Composable

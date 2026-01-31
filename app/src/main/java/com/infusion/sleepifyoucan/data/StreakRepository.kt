@@ -128,6 +128,7 @@ class StreakRepository(
     
     /**
      * Get a motivational message based on streak status.
+     * Uses hardcoded quotes that rotate daily for active streaks.
      */
     suspend fun getMotivationalMessage(): String {
         val count = getCurrentStreakCount()
@@ -137,9 +138,9 @@ class StreakRepository(
             milestone == StreakMilestone.MONTHLY -> "🎉 Amazing! One month of consistent wake-ups!"
             milestone == StreakMilestone.WEEKLY -> "🔥 One full week! You're on fire!"
             milestone == StreakMilestone.MULTIPLE_OF_FIVE -> "⭐ $count days! Keep the momentum going!"
-            count >= 3 -> "🔥 You're on fire! – time to celebrate 🎉"
+            count >= 3 -> MotivationalQuotes.getQuoteOfTheDay()
             count >= 1 -> "Great start! Keep it going tomorrow!"
-            else -> "Start your streak today!"
+            else -> MotivationalQuotes.getQuoteOfTheDay()
         }
     }
     
