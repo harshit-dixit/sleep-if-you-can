@@ -13,127 +13,124 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.infusion.sleepifyoucan.data.*
 import com.infusion.sleepifyoucan.ui.theme.*
 import com.infusion.sleepifyoucan.utils.EvilModeHelper
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Settings screen — displayed as a tab, no separate Scaffold/TopBar.
+ * Bottom nav remains visible and functional.
+ */
 @Composable
 fun SettingsScreen(
     preferences: AppPreferences,
     onMissionAudioChange: (MissionAudioBehavior) -> Unit,
     onEscapeModeChange: (EscapePreventionMode) -> Unit,
-    onVolumeEscalationChange: (Boolean) -> Unit,
-    onBack: () -> Unit
+    onVolumeEscalationChange: (Boolean) -> Unit
 ) {
     var showAudioDialog by remember { mutableStateOf(false) }
     var showEscapeDialog by remember { mutableStateOf(false) }
     var showEvilModeWarning by remember { mutableStateOf(false) }
     var pendingEvilMode by remember { mutableStateOf(false) }
-    
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings", color = TextPrimary) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BlackMuteDark
-                )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DeepNavy)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+    ) {
+        // Header
+        Text(
+            text = "Settings",
+            style = MaterialTheme.typography.headlineLarge,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(vertical = 24.dp)
+        )
+
+        // ALARM BEHAVIOR Section
+        SettingsSection(title = "Alarm Behavior") {
+            SettingsItem(
+                icon = Icons.Default.Notifications,
+                title = "Sound during mission",
+                subtitle = preferences.missionAudioBehavior.displayName(),
+                onClick = { showAudioDialog = true }
             )
-        },
-        containerColor = BlackMute
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            // ALARM BEHAVIOR Section
-            SettingsSection(title = "Alarm Behavior") {
-                // Mission Audio
-                SettingsItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Sound during mission",
-                    subtitle = preferences.missionAudioBehavior.displayName(),
-                    onClick = { showAudioDialog = true }
-                )
-                
-                HorizontalDivider(color = BlackMuteDark.copy(alpha = 0.5f))
-                
-                // Escape Prevention
-                SettingsItem(
-                    icon = Icons.Default.Lock,
-                    title = "Escape prevention",
-                    subtitle = preferences.escapePreventionMode.displayName(),
-                    onClick = { showEscapeDialog = true }
-                )
-                
-                HorizontalDivider(color = BlackMuteDark.copy(alpha = 0.5f))
-                
-                // Volume Escalation
-                SettingsToggleItem(
-                    icon = Icons.Default.Settings,
-                    title = "Gradual volume increase",
-                    subtitle = "Start quiet, get louder over time",
-                    checked = preferences.volumeEscalation,
-                    onCheckedChange = onVolumeEscalationChange
-                )
-            }
-            
-            // MISSIONS Section
-            SettingsSection(title = "Missions") {
-                SettingsItem(
-                    icon = Icons.Default.Build,
-                    title = "Default mission",
-                    subtitle = preferences.defaultMissionType,
-                    onClick = { /* TODO: Mission picker */ }
-                )
-            }
-            
-            // ABOUT Section
-            SettingsSection(title = "About") {
-                SettingsItem(
-                    icon = Icons.Default.Info,
-                    title = "Version",
-                    subtitle = "1.0.0",
-                    onClick = { }
-                )
-                
-                HorizontalDivider(color = BlackMuteDark.copy(alpha = 0.5f))
-                
-                SettingsItem(
-                    icon = Icons.Default.Star,
-                    title = "Rate on Play Store",
-                    subtitle = "Help us improve!",
-                    onClick = { /* TODO: Launch Play Store */ }
-                )
-                
-                HorizontalDivider(color = BlackMuteDark.copy(alpha = 0.5f))
-                
-                SettingsItem(
-                    icon = Icons.Default.Email,
-                    title = "Send feedback",
-                    subtitle = "Report bugs or suggest features",
-                    onClick = { /* TODO: Feedback form */ }
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(32.dp))
+
+            HorizontalDivider(color = GlassBorder)
+
+            SettingsItem(
+                icon = Icons.Default.Lock,
+                title = "Escape prevention",
+                subtitle = preferences.escapePreventionMode.displayName(),
+                onClick = { showEscapeDialog = true }
+            )
+
+            HorizontalDivider(color = GlassBorder)
+
+            SettingsToggleItem(
+                icon = Icons.Default.VolumeUp,
+                title = "Gradual volume increase",
+                subtitle = "Start quiet, get louder over time",
+                checked = preferences.volumeEscalation,
+                onCheckedChange = onVolumeEscalationChange
+            )
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // MISSIONS Section
+        SettingsSection(title = "Missions") {
+            SettingsItem(
+                icon = Icons.Default.Extension,
+                title = "Default mission",
+                subtitle = preferences.defaultMissionType,
+                onClick = { /* TODO: Mission picker */ }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ABOUT Section
+        SettingsSection(title = "About") {
+            SettingsItem(
+                icon = Icons.Default.Info,
+                title = "Version",
+                subtitle = "1.0.0",
+                onClick = { }
+            )
+
+            HorizontalDivider(color = GlassBorder)
+
+            SettingsItem(
+                icon = Icons.Default.Star,
+                title = "Rate on Play Store",
+                subtitle = "Help us improve!",
+                onClick = { /* TODO: Launch Play Store */ }
+            )
+
+            HorizontalDivider(color = GlassBorder)
+
+            SettingsItem(
+                icon = Icons.Default.Email,
+                title = "Send feedback",
+                subtitle = "Report bugs or suggest features",
+                onClick = { /* TODO: Feedback form */ }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(80.dp))
     }
-    
+
     // Audio Behavior Dialog
     if (showAudioDialog) {
         AlertDialog(
             onDismissRequest = { showAudioDialog = false },
             title = { Text("Sound during mission", color = TextPrimary) },
-            containerColor = BlackMuteSurface,
+            containerColor = DarkBlue,
             text = {
                 Column {
                     MissionAudioBehavior.entries.forEach { behavior ->
@@ -151,7 +148,7 @@ fun SettingsScreen(
                                 selected = preferences.missionAudioBehavior == behavior,
                                 onClick = null,
                                 colors = RadioButtonDefaults.colors(
-                                    selectedColor = PurpleNight,
+                                    selectedColor = Coral,
                                     unselectedColor = TextSecondary
                                 )
                             )
@@ -171,13 +168,13 @@ fun SettingsScreen(
             confirmButton = { }
         )
     }
-    
+
     // Escape Mode Dialog
     if (showEscapeDialog) {
         AlertDialog(
             onDismissRequest = { showEscapeDialog = false },
             title = { Text("Escape prevention", color = TextPrimary) },
-            containerColor = BlackMuteSurface,
+            containerColor = DarkBlue,
             text = {
                 Column {
                     EscapePreventionMode.entries.forEach { mode ->
@@ -201,7 +198,7 @@ fun SettingsScreen(
                                 selected = preferences.escapePreventionMode == mode,
                                 onClick = null,
                                 colors = RadioButtonDefaults.colors(
-                                    selectedColor = if (mode == EscapePreventionMode.EVIL) OrangeJuice else PurpleNight,
+                                    selectedColor = if (mode == EscapePreventionMode.EVIL) OrangeAccent else Coral,
                                     unselectedColor = TextSecondary
                                 )
                             )
@@ -209,7 +206,7 @@ fun SettingsScreen(
                             Column {
                                 Text(
                                     mode.displayName(),
-                                    color = if (mode == EscapePreventionMode.EVIL) OrangeJuice else TextPrimary
+                                    color = if (mode == EscapePreventionMode.EVIL) OrangeAccent else TextPrimary
                                 )
                                 Text(
                                     mode.description(),
@@ -224,21 +221,21 @@ fun SettingsScreen(
             confirmButton = { }
         )
     }
-    
+
     // Evil Mode Warning Dialog
     if (showEvilModeWarning) {
         AlertDialog(
-            onDismissRequest = { 
-                showEvilModeWarning = false 
+            onDismissRequest = {
+                showEvilModeWarning = false
                 pendingEvilMode = false
             },
-            title = { 
+            title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("😈 ", style = MaterialTheme.typography.headlineSmall)
-                    Text("Evil Mode", color = OrangeJuice)
+                    Text("Evil Mode", color = OrangeAccent)
                 }
             },
-            containerColor = BlackMuteSurface,
+            containerColor = DarkBlue,
             text = {
                 Text(
                     EvilModeHelper.getPermissionExplanation(),
@@ -252,14 +249,14 @@ fun SettingsScreen(
                         showEvilModeWarning = false
                         pendingEvilMode = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = OrangeJuice)
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent)
                 ) {
                     Text("Enable Evil Mode")
                 }
             },
             dismissButton = {
                 TextButton(
-                    onClick = { 
+                    onClick = {
                         showEvilModeWarning = false
                         pendingEvilMode = false
                     }
@@ -276,18 +273,19 @@ fun SettingsSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
-            color = PurpleNight,
+            color = Coral,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
         )
-        Card(
-            colors = CardDefaults.cardColors(containerColor = BlackMuteSurface),
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Column(content = content)
+            content()
         }
     }
 }
@@ -303,16 +301,16 @@ fun SettingsItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(16.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = TextPrimary)
+            Text(title, color = TextPrimary, style = MaterialTheme.typography.bodyLarge)
             Text(
-                subtitle, 
-                style = MaterialTheme.typography.bodySmall, 
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary
             )
         }
@@ -331,27 +329,27 @@ fun SettingsToggleItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = TextPrimary)
+            Text(title, color = TextPrimary, style = MaterialTheme.typography.bodyLarge)
             Text(
-                subtitle, 
-                style = MaterialTheme.typography.bodySmall, 
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary
             )
         }
         Switch(
-            checked = checked, 
+            checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = PurpleNight,
-                checkedTrackColor = PurpleNight.copy(alpha = 0.3f),
+                checkedThumbColor = Coral,
+                checkedTrackColor = Coral.copy(alpha = 0.3f),
                 uncheckedThumbColor = TextDisabled,
-                uncheckedTrackColor = BlackMuteDark
+                uncheckedTrackColor = GlassWhite
             )
         )
     }

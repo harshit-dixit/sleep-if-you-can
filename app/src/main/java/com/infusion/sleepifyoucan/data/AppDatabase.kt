@@ -7,17 +7,14 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [Alarm::class, Streak::class, SleepSession::class, SleepEvent::class, SleepReport::class],
-    version = 4,
+    entities = [Alarm::class, Streak::class],
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
     abstract fun streakDao(): StreakDao
-    abstract fun sleepSessionDao(): SleepSessionDao
-    abstract fun sleepEventDao(): SleepEventDao
-    abstract fun sleepReportDao(): SleepReportDao
 
     companion object {
         @Volatile
@@ -38,4 +35,3 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
-

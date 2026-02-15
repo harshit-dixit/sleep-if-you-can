@@ -57,25 +57,6 @@ class Converters {
         }
     }
 
-    @TypeConverter
-    fun fromSleepQuality(value: SleepQuality): String = value.name
-
-    @TypeConverter
-    fun toSleepQuality(value: String): SleepQuality = try {
-        SleepQuality.valueOf(value)
-    } catch (e: Exception) {
-        SleepQuality.UNKNOWN
-    }
-
-    @TypeConverter
-    fun fromSleepEventType(value: SleepEventType): String = value.name
-
-    @TypeConverter
-    fun toSleepEventType(value: String): SleepEventType = try {
-        SleepEventType.valueOf(value)
-    } catch (e: Exception) {
-        SleepEventType.BEDTIME_START
-    }
 }
 
 // Helper for GSON serialization of sealed class

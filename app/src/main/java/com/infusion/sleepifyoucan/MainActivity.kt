@@ -1,17 +1,14 @@
 package com.infusion.sleepifyoucan
 
-import android.Manifest
 import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,8 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.*
 import androidx.navigation.compose.*
@@ -44,27 +39,15 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-           // Good
-        } else {
-            Toast.makeText(this, "Permission Denied! Alarm might not show.", Toast.LENGTH_LONG).show()
-        }
-    }
-
     private var showOnboarding by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // Check if onboarding has been completed
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
         val onboardingCompleted = prefs.getBoolean("onboarding_completed", false)
         showOnboarding = !onboardingCompleted
-        
-        checkAndRequestPermissions()
 
         val database = (application as SleepApplication).database
         val alarmRepository = AlarmRepository(database.alarmDao(), AlarmScheduler(this))
@@ -75,7 +58,6 @@ class MainActivity : ComponentActivity() {
                 if (showOnboarding) {
                     OnboardingFlow(
                         onComplete = {
-                            // Mark onboarding as completed
                             getSharedPreferences("app_prefs", MODE_PRIVATE)
                                 .edit()
                                 .putBoolean("onboarding_completed", true)
@@ -83,7 +65,6 @@ class MainActivity : ComponentActivity() {
                             showOnboarding = false
                         },
                         onSkip = {
-                            // Mark onboarding as completed even when skipped
                             getSharedPreferences("app_prefs", MODE_PRIVATE)
                                 .edit()
                                 .putBoolean("onboarding_completed", true)
@@ -95,21 +76,23 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     val viewModel: AlarmViewModel = viewModel(factory = AlarmViewModel.Factory(alarmRepository))
                     val settingsViewModel: SettingsViewModel = viewModel()
-                    
-                    // Track current selected tab
-                    var selectedTab by remember { mutableStateOf(NavigationTab.HOME) }
-                    
+
+                    // Track current selected tab — default to ALARMS
+                    var selectedTab by remember { mutableStateOf(NavigationTab.ALARMS) }
+
+                    // Track if we're on add/edit route
+                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentRoute = navBackStackEntry?.destination?.route
+                    val isOnAddEdit = currentRoute?.startsWith("add_edit") == true
+
                     // Collect alarms
                     val alarms by viewModel.allAlarms.collectAsState(initial = emptyList())
-                    val nextAlarm = alarms.filter { it.isEnabled }.minByOrNull { 
-                        it.hour * 60 + it.minute 
-                    }
-                    
+
                     // Streak data
                     var currentStreak by remember { mutableIntStateOf(0) }
                     var weeklyProgress by remember { mutableStateOf<Map<Long, Boolean>>(emptyMap()) }
                     var motivationalMessage by remember { mutableStateOf("Start your streak today!") }
-                    
+
                     // Load streak data
                     val scope = rememberCoroutineScope()
                     LaunchedEffect(Unit) {
@@ -123,13 +106,23 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         containerColor = DeepNavy,
                         bottomBar = {
-                            AppBottomNavigation(
-                                selectedTab = selectedTab,
-                                onTabSelected = { selectedTab = it }
-                            )
+                            // Hide bottom nav on add/edit screen
+                            if (!isOnAddEdit) {
+                                AppBottomNavigation(
+                                    selectedTab = selectedTab,
+                                    onTabSelected = { tab ->
+                                        selectedTab = tab
+                                        // Navigate back to main if on a sub-route
+                                        if (currentRoute != "main") {
+                                            navController.popBackStack("main", inclusive = false)
+                                        }
+                                    }
+                                )
+                            }
                         },
                         floatingActionButton = {
-                            if (selectedTab == NavigationTab.ALARMS) {
+                            // Show FAB only on ALARMS tab and not on add/edit screen
+                            if (selectedTab == NavigationTab.ALARMS && !isOnAddEdit) {
                                 FloatingActionButton(
                                     onClick = {
                                         if (checkExactAlarmPermission(this@MainActivity)) {
@@ -137,7 +130,8 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     containerColor = Coral,
-                                    contentColor = TextPrimary
+                                    contentColor = TextOnAccent,
+                                    shape = RoundedCornerShape(16.dp)
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = "Add Alarm")
                                 }
@@ -146,20 +140,11 @@ class MainActivity : ComponentActivity() {
                     ) { padding ->
                         NavHost(
                             navController = navController,
-                            startDestination = "main"
+                            startDestination = "main",
+                            modifier = Modifier.padding(padding)
                         ) {
                             composable("main") {
                                 when (selectedTab) {
-                                    NavigationTab.HOME -> {
-                                        HomeScreen(
-                                            nextAlarm = nextAlarm,
-                                            currentStreak = currentStreak,
-                                            onAlarmClick = { selectedTab = NavigationTab.ALARMS },
-                                            onEditSleepTime = { /* TODO */ },
-                                            onSettingsClick = { navController.navigate("settings") },
-                                            onStatisticsClick = { navController.navigate("statistics") }
-                                        )
-                                    }
                                     NavigationTab.ALARMS -> {
                                         AlarmListScreen(
                                             viewModel = viewModel,
@@ -175,30 +160,22 @@ class MainActivity : ComponentActivity() {
                                             motivationalMessage = motivationalMessage
                                         )
                                     }
-                                    NavigationTab.SLEEP -> {
-                                        val sleepReports by (application as SleepApplication).sleepTrackingRepository.getRecentSleepReports().collectAsState(initial = emptyList())
-                                        
-                                        SleepReportScreen(
-                                            sleepReports = sleepReports,
-                                            onStartSleepTracking = {
-                                                scope.launch {
-                                                    (application as SleepApplication).sleepTrackingRepository.startSleepTracking()
-                                                }
-                                            },
-                                            onStopSleepTracking = {
-                                                scope.launch {
-                                                    (application as SleepApplication).sleepTrackingRepository.stopSleepTracking()
-                                                }
-                                            },
-                                            isTrackingActive = (application as SleepApplication).sleepTrackingRepository.isSleepTrackingActive()
+                                    NavigationTab.SETTINGS -> {
+                                        val preferences by settingsViewModel.preferences.collectAsState()
+
+                                        SettingsScreen(
+                                            preferences = preferences,
+                                            onMissionAudioChange = { settingsViewModel.updateMissionAudioBehavior(it) },
+                                            onEscapeModeChange = { settingsViewModel.updateEscapePreventionMode(it) },
+                                            onVolumeEscalationChange = { settingsViewModel.updateVolumeEscalation(it) }
                                         )
                                     }
                                 }
                             }
                             composable(
                                 "add_edit?alarmId={alarmId}",
-                                arguments = listOf(navArgument("alarmId") { 
-                                    defaultValue = -1 
+                                arguments = listOf(navArgument("alarmId") {
+                                    defaultValue = -1
                                     type = NavType.IntType
                                 })
                             ) { backStackEntry ->
@@ -206,7 +183,7 @@ class MainActivity : ComponentActivity() {
                                 val alarmToEdit = if (alarmId != -1) {
                                     viewModel.allAlarms.collectAsState(initial = emptyList()).value.find { it.id == alarmId }
                                 } else null
-                                
+
                                 AddEditAlarmScreen(
                                     alarm = alarmToEdit,
                                     onSave = { alarm ->
@@ -222,68 +199,16 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             }
-                            
-                            // Settings Screen
-                            composable("settings") {
-                                val preferences by settingsViewModel.preferences.collectAsState()
-                                
-                                SettingsScreen(
-                                    preferences = preferences,
-                                    onMissionAudioChange = { settingsViewModel.updateMissionAudioBehavior(it) },
-                                    onEscapeModeChange = { settingsViewModel.updateEscapePreventionMode(it) },
-                                    onVolumeEscalationChange = { settingsViewModel.updateVolumeEscalation(it) },
-                                    onBack = { navController.popBackStack() }
-                                )
-                            }
-                            
-                            // Statistics Screen
-                            composable("statistics") {
-                                val sleepReports by (application as SleepApplication).sleepTrackingRepository.getRecentSleepReports().collectAsState(initial = emptyList())
-                                
-                                // Calculate statistics
-                                val alarms by viewModel.allAlarms.collectAsState(initial = emptyList())
-                                val totalAlarmsCompleted = alarms.count { it.isEnabled }
-                                val averageSleepScore = if (sleepReports.isNotEmpty()) {
-                                    sleepReports.map { it.score }.average().toFloat()
-                                } else 0f
-                                
-                                StatisticsDashboard(
-                                    sleepReports = sleepReports,
-                                    currentStreak = currentStreak,
-                                    weeklyProgress = weeklyProgress,
-                                    totalAlarmsCompleted = totalAlarmsCompleted,
-                                    averageSleepScore = averageSleepScore
-                                )
-                            }
                         }
                     }
                 }
             }
         }
     }
-
-    private fun checkAndRequestPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) 
-                != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-        
-        // Critical: Overlay Permission for Alarm
-        if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Please grant 'Display over other apps' to allow alarm to show.", Toast.LENGTH_LONG).show()
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                android.net.Uri.parse("package:$packageName")
-            )
-            startActivity(intent)
-        }
-    }
 }
 
 /**
- * Redesigned Alarm List Screen with cards matching the app theme.
+ * Redesigned Alarm List Screen with glassmorphism cards.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -296,7 +221,7 @@ fun AlarmListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BlackMute)
+            .background(DeepNavy)
             .padding(horizontal = 16.dp)
     ) {
         // Header
@@ -304,26 +229,41 @@ fun AlarmListScreen(
             text = "Alarms",
             style = MaterialTheme.typography.headlineLarge,
             color = TextPrimary,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(vertical = 24.dp)
         )
-        
+
         if (alarms.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "No alarms yet",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Tap + to create your first alarm",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextDisabled
-                    )
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp)
+                    ) {
+                        Text(
+                            text = "⏰",
+                            style = MaterialTheme.typography.displaySmall
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No alarms yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Tap + to create your first alarm",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    }
                 }
             }
         } else {
@@ -345,7 +285,7 @@ fun AlarmListScreen(
 }
 
 /**
- * Redesigned Alarm Item Card with modern styling.
+ * Alarm Item Card with glassmorphism styling.
  */
 @Composable
 fun AlarmItemCard(
@@ -354,19 +294,13 @@ fun AlarmItemCard(
     onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = BlackMuteSurface
-        ),
-        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -376,9 +310,9 @@ fun AlarmItemCard(
                     fontWeight = FontWeight.Bold,
                     color = if (alarm.isEnabled) TextPrimary else TextDisabled
                 )
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 Row {
                     if (alarm.label != null) {
                         Text(
@@ -392,30 +326,30 @@ fun AlarmItemCard(
                         )
                     }
                     Text(
-                        text = if(alarm.daysOfWeek.isEmpty()) "One-time" else "Repeating",
+                        text = if (alarm.daysOfWeek.isEmpty()) "One-time" else "Repeating",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextDisabled
                     )
                 }
             }
-            
+
             Switch(
                 checked = alarm.isEnabled,
                 onCheckedChange = { onToggle() },
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = PurpleNight,
-                    checkedTrackColor = PurpleNight.copy(alpha = 0.3f),
+                    checkedThumbColor = Coral,
+                    checkedTrackColor = Coral.copy(alpha = 0.3f),
                     uncheckedThumbColor = TextDisabled,
-                    uncheckedTrackColor = BlackMuteDark
+                    uncheckedTrackColor = GlassWhite
                 ),
                 modifier = Modifier.padding(end = 8.dp)
             )
-            
+
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = OrangeJuice.copy(alpha = 0.8f)
+                    tint = Error.copy(alpha = 0.7f)
                 )
             }
         }

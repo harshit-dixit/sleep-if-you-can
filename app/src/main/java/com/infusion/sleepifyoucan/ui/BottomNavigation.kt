@@ -1,22 +1,24 @@
 package com.infusion.sleepifyoucan.ui
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.infusion.sleepifyoucan.ui.theme.*
 
 /**
- * Bottom navigation bar for the app.
+ * Bottom navigation bar with glassmorphism styling.
+ * Three tabs: Alarms, Streak, Settings.
  */
 @Composable
 fun AppBottomNavigation(
@@ -24,13 +26,15 @@ fun AppBottomNavigation(
     onTabSelected: (NavigationTab) -> Unit
 ) {
     NavigationBar(
-        containerColor = NavyLight.copy(alpha = 0.95f),
+        containerColor = Color(0xE0101020),
         contentColor = TextSecondary,
-        tonalElevation = 8.dp
+        tonalElevation = 0.dp,
+        modifier = Modifier
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
     ) {
         NavigationTab.entries.forEach { tab ->
             val isSelected = selectedTab == tab
-            
+
             NavigationBarItem(
                 icon = {
                     BounceAnimation(isPressed = isSelected) {
@@ -53,7 +57,7 @@ fun AppBottomNavigation(
                     selectedTextColor = Coral,
                     unselectedIconColor = TextTertiary,
                     unselectedTextColor = TextTertiary,
-                    indicatorColor = Coral.copy(alpha = 0.15f)
+                    indicatorColor = Coral.copy(alpha = 0.12f)
                 )
             )
         }
@@ -61,18 +65,13 @@ fun AppBottomNavigation(
 }
 
 /**
- * Navigation tabs for the app.
+ * Navigation tabs — Alarms, Streak, Settings only.
  */
 enum class NavigationTab(
     val title: String,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 ) {
-    HOME(
-        title = "Home",
-        selectedIcon = Icons.Filled.Home,
-        unselectedIcon = Icons.Outlined.Home
-    ),
     ALARMS(
         title = "Alarms",
         selectedIcon = Icons.Filled.Notifications,
@@ -83,9 +82,9 @@ enum class NavigationTab(
         selectedIcon = Icons.Filled.Star,
         unselectedIcon = Icons.Outlined.Star
     ),
-    SLEEP(
-        title = "Sleep",
-        selectedIcon = Icons.Filled.DateRange,
-        unselectedIcon = Icons.Outlined.DateRange
+    SETTINGS(
+        title = "Settings",
+        selectedIcon = Icons.Filled.Settings,
+        unselectedIcon = Icons.Outlined.Settings
     )
 }
