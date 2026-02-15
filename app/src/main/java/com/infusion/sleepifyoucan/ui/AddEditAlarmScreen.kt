@@ -22,6 +22,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.core.content.IntentCompat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -102,8 +104,10 @@ fun AddEditAlarmScreen(
     val ringtoneLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val uri: Uri? = result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (result.resultCode == Activity.RESULT_OK) {
+            val uri: Uri? = result.data?.let { intent ->
+                IntentCompat.getParcelableExtra(intent, RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java)
+            }
             if (uri != null) {
                 ringtoneUri = uri.toString()
                 try {
@@ -140,7 +144,7 @@ fun AddEditAlarmScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = TextPrimary)
                     }
                 },
                 actions = {
@@ -333,23 +337,30 @@ fun AddEditAlarmScreen(
             // ── Mission Selector (Grid) ──
             SectionLabel("Mission")
             
-            // 2-column grid of mission cards
-            val missionOptions = MissionType.entries.toList()
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 400.dp),
-                userScrollEnabled = false
+            // Replaced LazyVerticalGrid with simple Column/Row to avoid nesting scroll issues and cut-off
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(missionOptions) { type ->
-                    MissionCard(
-                        type = type,
-                        isSelected = missionType == type,
-                        onClick = { missionType = type }
-                    )
+                MissionType.entries.chunked(2).forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowItems.forEach { type ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                MissionCard(
+                                    type = type,
+                                    isSelected = missionType == type,
+                                    onClick = { missionType = type }
+                                )
+                            }
+                        }
+                        // Fill empty space if odd number of items
+                        if (rowItems.size < 2) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
                 }
             }
 
@@ -672,12 +683,22 @@ fun TryMissionDialog(
                     MissionType.SHAKE -> {
                         val target = (config as MissionConfig.Shake).targetShakes
                         var count by remember { mutableIntStateOf(0) }
-                        MissionPreviewInfo(
-                            emoji = "📱",
-                            title = "Shake Preview",
-                            description = "Shake your phone! Target: $target shakes\n\nCurrent: $count / $target"
-                        )
-                        // Note: actual shake detection needs ShakeDetector which needs Activity context
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            MissionPreviewInfo(
+                                emoji = "📱",
+                                title = "Shake Preview",
+                                description = "Target: $target shakes\nCurrent: $count"
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(onClick = { 
+                                count++
+                                if (count >= target) {
+                                    // Succeeded
+                                }
+                            }) {
+                                Text("Simulate Shake")
+                            }
+                        }
                     }
                     MissionType.MATH -> {
                         val cfg = config as MissionConfig.Math
@@ -709,20 +730,32 @@ fun TryMissionDialog(
                     MissionType.SQUAT -> {
                         val target = (config as MissionConfig.Squat).targetSquats
                         var count by remember { mutableIntStateOf(0) }
-                        SquatMissionScreen(
-                            targetSquats = target,
-                            currentSquats = count,
-                            onSquatDetected = { count++ }
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            SquatMissionScreen(
+                                targetSquats = target,
+                                currentSquats = count,
+                                onSquatDetected = { /* No-op in preview */ }
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(onClick = { count++ }) {
+                                Text("Simulate Squat")
+                            }
+                        }
                     }
                     MissionType.STEP -> {
                         val target = (config as MissionConfig.Step).targetSteps
                         var count by remember { mutableIntStateOf(0) }
-                        StepMissionScreen(
-                            targetSteps = target,
-                            currentSteps = count,
-                            onStepDetected = { count++ }
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            StepMissionScreen(
+                                targetSteps = target,
+                                currentSteps = count,
+                                onStepDetected = { /* No-op in preview */ }
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(onClick = { count++ }) {
+                                Text("Simulate Step")
+                            }
+                        }
                     }
                     MissionType.PHOTO -> {
                         val obj = (config as MissionConfig.Photo).requiredObject

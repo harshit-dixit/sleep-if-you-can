@@ -15,10 +15,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -236,6 +240,7 @@ private fun MissionChip(emoji: String, label: String) {
 @Composable
 private fun PermissionsPage(onNext: () -> Unit) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     // Track which permissions are granted
     var notificationGranted by remember {
@@ -259,6 +264,27 @@ private fun PermissionsPage(onNext: () -> Unit) {
         )
     }
 
+    // Refresh permissions on resume (especially for Overlay/Appear on Top which takes user to Settings)
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                overlayGranted = Settings.canDrawOverlays(context)
+                // Also check others just in case user changed them in settings
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notificationGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                }
+                cameraGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    activityGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         notificationGranted = it
     }
@@ -274,9 +300,13 @@ private fun PermissionsPage(onNext: () -> Unit) {
         title = "Quick Setup",
         subtitle = "We need a few permissions to make sure your alarm works perfectly",
         illustration = {
+            // Use a scrollable column for the permissions list to prevent cutoff on small screens
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp) // Limit height to allow scrolling within the illustration area
+                    .verticalScroll(rememberScrollState())
             ) {
                 // Notification Permission
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -303,7 +333,6 @@ private fun PermissionsPage(onNext: () -> Unit) {
                             android.net.Uri.parse("package:${context.packageName}")
                         )
                         context.startActivity(intent)
-                        // Will recheck on resume
                     }
                 )
 
@@ -321,7 +350,7 @@ private fun PermissionsPage(onNext: () -> Unit) {
                 // Activity Recognition
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     PermissionItem(
-                        icon = Icons.Default.DirectionsWalk,
+                        icon = Icons.AutoMirrored.Filled.DirectionsWalk,
                         title = "Activity Recognition",
                         description = "For step & squat missions",
                         isGranted = activityGranted,
@@ -330,6 +359,9 @@ private fun PermissionsPage(onNext: () -> Unit) {
                         }
                     )
                 }
+                
+                // Add some bottom padding to ensure the last item is easily clickable/visible
+                Spacer(modifier = Modifier.height(8.dp))
             }
         },
         onNext = onNext,
