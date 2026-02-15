@@ -2,22 +2,20 @@ package com.infusion.sleepifyoucan.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.infusion.sleepifyoucan.utils.ShakeDetector
+import androidx.compose.ui.unit.sp
 import com.infusion.sleepifyoucan.ui.theme.*
+import com.infusion.sleepifyoucan.utils.ShakeDetector
 
 @Composable
 fun ShakeMissionScreen(
@@ -26,142 +24,132 @@ fun ShakeMissionScreen(
     shakeDetector: ShakeDetector,
     onShake: () -> Unit
 ) {
-    // We lift the state up. The ShakeDetector callback in Activity/VM should update the `currentShakes`.
-    // However, the original code had the detector listener INSIDE the composable.
-    // user's plan: "Keep ShakeDetector in Activity (bridged to ViewModel events)"
-    // So here we just display progress?
-    // Actually, if ShakeDetector is in Activity, this screen just visualizes 'currentShakes'.
-    // The previous implementation had logic inside LaunchedEffect.
-    // I will adapt it to be stateless UI if possible, OR, if ShakeDetector is passed, 
-    // we can keep the listener here but it calls `onShake()` lambda which delegates to VM.
-    
-    // Side Effect to listen to shakes
-    // NOTE: If ShakeDetector is managed by Activity lifecycle (onResume/onPause), 
-    // we might not need to start/stop it here.
-    // But usually it's tied to the mission screen being active.
-    
-    LaunchedEffect(Unit) {
-        shakeDetector.start {
+    var shakeTriggered by remember { mutableStateOf(false) }
+
+    // Detect shakes and trigger animation
+    LaunchedEffect(shakeDetector.shakeCount) {
+        if (shakeDetector.shakeCount > 0) {
+            shakeTriggered = true
             onShake()
-        }
-    }
-    
-    // Haptic feedback on shake
-    val view = LocalView.current
-    var flashColor by remember { mutableStateOf(Color.Transparent) }
-    
-    // Flash green when complete
-    LaunchedEffect(currentShakes) {
-        if (currentShakes > 0) {
-            // Haptic on each shake
-            view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-        }
-        if (currentShakes >= targetShakes) {
-            // Celebration flash
-            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-            flashColor = GreenLand.copy(alpha = 0.5f)
             kotlinx.coroutines.delay(300)
-            flashColor = Color.Transparent
+            shakeTriggered = false
         }
     }
 
-    val progress by animateFloatAsState(
-        targetValue = currentShakes.toFloat() / targetShakes.toFloat(),
-        label = "Progress"
-    )
-    
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Flash overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(flashColor)
-        )
-        
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(GradientPrimary)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(BlackMute)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-        Text(
-            "SHAKE IT!",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        // Glass Filling Animation
-        GlassFillingAnimation(
-            progress = progress,
-            modifier = Modifier.size(200.dp, 280.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            "${currentShakes}/${targetShakes}",
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold,
-            color = PurpleNight
-        )
-        
-        if (progress < 1f) {
+            // Animated title
+            ScaleFadeAnimation(visible = true) {
+                Text(
+                    text = "Shake to Dismiss!",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = Coral,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Instruction text with breathing animation
+            BreathingAnimation {
+                Text(
+                    text = "Shake your phone vigorously",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Spacer(modifier = Modifier.height(64.dp))
+
+            // Progress indicator with bounce animation
+            BounceAnimation(isPressed = shakeTriggered) {
+                Box(
+                    modifier = Modifier
+                        .size(200.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = GradientAccent,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = currentShakes.toString(),
+                            style = androidx.compose.ui.text.TextStyle(
+                                fontSize = 48.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        )
+                        Text(
+                            text = "/ $targetShakes",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = TextPrimary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // Shake indicator
+            if (shakeTriggered) {
+                PulseAnimation {
+                    Text(
+                        text = "SHAKE DETECTED!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Mint,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else {
+                Text(
+                    text = "Shake harder to register",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextTertiary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Progress bar with gradient
+            LinearProgressIndicator(
+                progress = { currentShakes.toFloat() / targetShakes.toFloat() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+                color = Coral,
+                trackColor = OceanBlue,
+                drawStopIndicator = {}
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Motivational text
             Text(
-                "Keep shaking!",
+                text = when {
+                    currentShakes == 0 -> "Let's get moving! 🎯"
+                    currentShakes < targetShakes / 2 -> "You're doing great! 💪"
+                    currentShakes < targetShakes -> "Almost there! 🔥"
+                    else -> "Amazing work! ⭐"
+                },
                 style = MaterialTheme.typography.bodyLarge,
-                color = TextSecondary
+                color = Gold,
+                textAlign = TextAlign.Center
             )
         }
-        } // Close Column
-    } // Close outer Box
-}
-
-/**
- * Glass filling with water animation.
- */
-@Composable
-fun GlassFillingAnimation(
-    progress: Float,
-    modifier: Modifier = Modifier
-) {
-    val waterColor by animateColorAsState(
-        targetValue = when {
-            progress >= 1f -> GreenLand
-            progress >= 0.7f -> PurpleNight
-            else -> PurpleNight.copy(alpha = 0.7f)
-        },
-        label = "WaterColor"
-    )
-    
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        val glassThickness = 8.dp.toPx()
-        val glassRadius = 16.dp.toPx()
-        
-        // Glass outline
-        drawRoundRect(
-            color = TextSecondary.copy(alpha = 0.3f),
-            topLeft = Offset(0f, 0f),
-            size = Size(width, height),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(glassRadius)
-        )
-        
-        // Water fill (from bottom up)
-        val waterHeight = (height - glassThickness * 2) * progress
-        val waterTop = height - glassThickness - waterHeight
-        
-        drawRoundRect(
-            color = waterColor,
-            topLeft = Offset(glassThickness, waterTop),
-            size = Size(width - glassThickness * 2, waterHeight),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(glassRadius - glassThickness)
-        )
     }
 }

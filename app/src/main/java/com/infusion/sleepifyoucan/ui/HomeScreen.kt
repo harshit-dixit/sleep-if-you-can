@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +41,7 @@ fun HomeScreen(
     onAlarmClick: () -> Unit,
     onEditSleepTime: () -> Unit,
     onSettingsClick: () -> Unit = {},
+    onStatisticsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -47,18 +49,42 @@ fun HomeScreen(
             .fillMaxSize()
             .background(BlackMute)
     ) {
-        // Settings button in top right
-        IconButton(
-            onClick = onSettingsClick,
+        // Top buttons row
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(16.dp)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                Icons.Default.Settings,
-                contentDescription = "Settings",
-                tint = TextSecondary
-            )
+            // Statistics button
+            IconButton(
+                onClick = onStatisticsClick,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NavyLight.copy(alpha = 0.8f))
+            ) {
+                Icon(
+                    Icons.Default.BarChart,
+                    contentDescription = "Statistics",
+                    tint = Coral
+                )
+            }
+            
+            // Settings button
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NavyLight.copy(alpha = 0.8f))
+            ) {
+                Icon(
+                    Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = TextSecondary
+                )
+            }
         }
         
         Column(

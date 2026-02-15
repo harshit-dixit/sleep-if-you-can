@@ -43,6 +43,40 @@ sealed class MissionState : Parcelable {
     ) : MissionState()
     
     @Parcelize
+    data class Typing(
+        val targetWord: String,
+        val currentInput: String = "",
+        val caseSensitive: Boolean = false
+    ) : MissionState()
+    
+    @Parcelize
+    data class Squat(
+        val target: Int,
+        val current: Int = 0
+    ) : MissionState()
+    
+    @Parcelize
+    data class Step(
+        val target: Int,
+        val current: Int = 0
+    ) : MissionState()
+    
+    @Parcelize
+    data class Photo(
+        val requiredObject: String,
+        val isPhotoTaken: Boolean = false
+    ) : MissionState()
+    
+    @Parcelize
+    data class Barcode(
+        val expectedBarcode: String? = null,
+        val scannedBarcode: String? = null
+    ) : MissionState()
+    
+    @Parcelize
+    object WakeUpCheck : MissionState()
+    
+    @Parcelize
     object Completed : MissionState()
 }
 
@@ -87,6 +121,22 @@ class AlarmRingingViewModel(
                     val cards = generateMemoryCards(missionConfig.gridSize)
                     MissionState.Memory(cards = cards, gridSize = missionConfig.gridSize)
                 }
+                is MissionConfig.Typing -> MissionState.Typing(
+                    targetWord = missionConfig.targetWord,
+                    caseSensitive = missionConfig.caseSensitive
+                )
+                is MissionConfig.Squat -> MissionState.Squat(
+                    target = missionConfig.targetSquats + (penalty * 2) // +2 squats per escape level
+                )
+                is MissionConfig.Step -> MissionState.Step(
+                    target = missionConfig.targetSteps + (penalty * 10) // +10 steps per escape level
+                )
+                is MissionConfig.Photo -> MissionState.Photo(
+                    requiredObject = missionConfig.requiredObject
+                )
+                is MissionConfig.Barcode -> MissionState.Barcode(
+                    expectedBarcode = missionConfig.expectedBarcode
+                )
             }
             updateState(newState)
         }
@@ -102,6 +152,79 @@ class AlarmRingingViewModel(
                 finishMission("SHAKE")
             } else {
                 updateState(current.copy(current = newCount))
+            }
+        }
+    }
+
+    fun onTypingInput(input: String) {
+        val current = _missionState.value
+        if (current is MissionState.Typing) {
+            val newInput = input
+            val target = if (current.caseSensitive) current.targetWord else current.targetWord.uppercase()
+            val userInput = if (current.caseSensitive) newInput else newInput.uppercase()
+            
+            if (userInput == target) {
+                finishMission("TYPING")
+            } else {
+                updateState(current.copy(currentInput = newInput))
+            }
+        }
+    }
+
+    fun onSquatDetected() {
+        val current = _missionState.value
+        if (current is MissionState.Squat) {
+            val newCount = current.current + 1
+            if (newCount >= current.target) {
+                finishMission("SQUAT")
+            } else {
+                updateState(current.copy(current = newCount))
+            }
+        }
+    }
+
+    fun onStepDetected() {
+        val current = _missionState.value
+        if (current is MissionState.Step) {
+            val newCount = current.current + 1
+            if (newCount >= current.target) {
+                finishMission("STEP")
+            } else {
+                updateState(current.copy(current = newCount))
+            }
+        }
+    }
+
+    fun onPhotoTaken() {
+        val current = _missionState.value
+        if (current is MissionState.Photo) {
+            updateState(current.copy(isPhotoTaken = true))
+            finishMission("PHOTO")
+        }
+    }
+
+    fun onBarcodeScanned(scannedCode: String) {
+        val current = _missionState.value
+        if (current is MissionState.Barcode) {
+            if (current.expectedBarcode == null || current.expectedBarcode == scannedCode) {
+                updateState(current.copy(scannedBarcode = scannedCode))
+                finishMission("BARCODE")
+            } else {
+                // Wrong barcode, don't update state - user can try again
+            }
+        }
+    }
+
+    fun onWakeUpConfirmed() {
+        val current = _missionState.value
+        if (current is MissionState.WakeUpCheck) {
+            viewModelScope.launch {
+                // Disable alarm if one-time
+                val alarm = alarmRepository.getAlarmById(alarmId)
+                if (alarm != null && alarm.daysOfWeek.isEmpty()) {
+                    alarmRepository.toggleEnabled(alarm, false)
+                }
+                updateState(MissionState.Completed)
             }
         }
     }
@@ -189,12 +312,8 @@ class AlarmRingingViewModel(
     private fun finishMission(type: String) {
         viewModelScope.launch {
             streakRepository.recordSuccessfulWakeUp(alarmId, type)
-            // Disable alarm if one-time
-            val alarm = alarmRepository.getAlarmById(alarmId)
-            if (alarm != null && alarm.daysOfWeek.isEmpty()) {
-                alarmRepository.toggleEnabled(alarm, false)
-            }
-            updateState(MissionState.Completed)
+            // Transition to wake up check instead of directly completing
+            updateState(MissionState.WakeUpCheck)
         }
     }
 

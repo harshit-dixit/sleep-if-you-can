@@ -34,9 +34,18 @@ class Converters {
     }
 
     @TypeConverter
-    fun toMissionConfig(value: String): MissionConfig {
-        val wrapper = gson.fromJson(value, MissionConfigWrapper::class.java)
-        return wrapper.toMissionConfig()
+    @TypeConverter
+    fun toAlarmSound(value: String): AlarmSound {
+        return try {
+            AlarmSound.valueOf(value)
+        } catch (e: Exception) {
+            AlarmSound.DEFAULT
+        }
+    }
+
+    @TypeConverter
+    fun fromAlarmSound(value: AlarmSound): String {
+        return value.name
     }
 }
 
@@ -46,18 +55,35 @@ data class MissionConfigWrapper(
     val shakeTarget: Int? = null,
     val mathDifficulty: String? = null,
     val mathCount: Int? = null,
-    val memoryGridSize: Int? = null
+    val memoryGridSize: Int? = null,
+    val typingTargetWord: String? = null,
+    val typingCaseSensitive: Boolean? = null,
+    val squatTarget: Int? = null,
+    val stepTarget: Int? = null,
+    val photoRequiredObject: String? = null,
+    val barcodeExpected: String? = null
 ) {
     constructor(config: MissionConfig) : this(
         type = when (config) {
             is MissionConfig.Shake -> "SHAKE"
             is MissionConfig.Math -> "MATH"
             is MissionConfig.Memory -> "MEMORY"
+            is MissionConfig.Typing -> "TYPING"
+            is MissionConfig.Squat -> "SQUAT"
+            is MissionConfig.Step -> "STEP"
+            is MissionConfig.Photo -> "PHOTO"
+            is MissionConfig.Barcode -> "BARCODE"
         },
         shakeTarget = if (config is MissionConfig.Shake) config.targetShakes else null,
         mathDifficulty = if (config is MissionConfig.Math) config.difficulty.name else null,
         mathCount = if (config is MissionConfig.Math) config.problemCount else null,
-        memoryGridSize = if (config is MissionConfig.Memory) config.gridSize else null
+        memoryGridSize = if (config is MissionConfig.Memory) config.gridSize else null,
+        typingTargetWord = if (config is MissionConfig.Typing) config.targetWord else null,
+        typingCaseSensitive = if (config is MissionConfig.Typing) config.caseSensitive else null,
+        squatTarget = if (config is MissionConfig.Squat) config.targetSquats else null,
+        stepTarget = if (config is MissionConfig.Step) config.targetSteps else null,
+        photoRequiredObject = if (config is MissionConfig.Photo) config.requiredObject else null,
+        barcodeExpected = if (config is MissionConfig.Barcode) config.expectedBarcode else null
     )
 
     fun toMissionConfig(): MissionConfig {
@@ -68,6 +94,14 @@ data class MissionConfigWrapper(
                 mathCount ?: 3
             )
             "MEMORY" -> MissionConfig.Memory(memoryGridSize ?: 4)
+            "TYPING" -> MissionConfig.Typing(
+                typingTargetWord ?: "HELLO",
+                typingCaseSensitive ?: false
+            )
+            "SQUAT" -> MissionConfig.Squat(squatTarget ?: 10)
+            "STEP" -> MissionConfig.Step(stepTarget ?: 50)
+            "PHOTO" -> MissionConfig.Photo(photoRequiredObject ?: "coffee")
+            "BARCODE" -> MissionConfig.Barcode(barcodeExpected)
             else -> MissionConfig.Shake(20) // Fallback
         }
     }

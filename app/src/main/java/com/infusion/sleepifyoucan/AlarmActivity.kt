@@ -195,6 +195,45 @@ fun AlarmRingingScreenHost(
                 onCardClick = { viewModel.onCardClicked(it) }
             )
         }
+        is MissionState.Typing -> {
+            TypingMissionScreen(
+                targetWord = state.targetWord,
+                currentInput = state.currentInput,
+                caseSensitive = state.caseSensitive,
+                onInputChange = { viewModel.onTypingInput(it) }
+            )
+        }
+        is MissionState.Squat -> {
+            SquatMissionScreen(
+                targetSquats = state.target,
+                currentSquats = state.current,
+                onSquatDetected = { viewModel.onSquatDetected() }
+            )
+        }
+        is MissionState.Step -> {
+            StepMissionScreen(
+                targetSteps = state.target,
+                currentSteps = state.current,
+                onStepDetected = { viewModel.onStepDetected() }
+            )
+        }
+        is MissionState.Photo -> {
+            PhotoMissionScreen(
+                requiredObject = state.requiredObject,
+                onPhotoTaken = { viewModel.onPhotoTaken() }
+            )
+        }
+        is MissionState.Barcode -> {
+            BarcodeMissionScreen(
+                expectedBarcode = state.expectedBarcode,
+                onBarcodeScanned = { viewModel.onBarcodeScanned(it) }
+            )
+        }
+        is MissionState.WakeUpCheck -> {
+            WakeUpCheckScreen(
+                onWakeUpConfirmed = { viewModel.onWakeUpConfirmed() }
+            )
+        }
         MissionState.Completed -> {
             // Handled by LaunchedEffect in Activity
             Box(Modifier.fillMaxSize().background(BlackMute))

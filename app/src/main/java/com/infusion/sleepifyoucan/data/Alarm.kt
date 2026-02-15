@@ -12,6 +12,7 @@ data class Alarm(
     val label: String? = null,
     val daysOfWeek: List<Int> = emptyList(), // 1=Sunday, 2=Monday, ...
     val ringtoneUri: String? = null, // Null = Default
+    val alarmSound: AlarmSound = AlarmSound.DEFAULT,
     val isVibrate: Boolean = true,
     val isSnoozeEnabled: Boolean = true,
     val snoozeDuration: Int = 5,
@@ -22,9 +23,20 @@ sealed class MissionConfig {
     data class Shake(val targetShakes: Int = 20) : MissionConfig()
     data class Math(val difficulty: Difficulty = Difficulty.EASY, val problemCount: Int = 3) : MissionConfig()
     data class Memory(val gridSize: Int = 4) : MissionConfig()
-    // Add more missions here (e.g. Photo, Barcode) logic later
+    data class Typing(val targetWord: String = "HELLO", val caseSensitive: Boolean = false) : MissionConfig()
+    data class Squat(val targetSquats: Int = 10) : MissionConfig()
+    data class Step(val targetSteps: Int = 50) : MissionConfig()
+    data class Photo(val requiredObject: String = "coffee") : MissionConfig()
+    data class Barcode(val expectedBarcode: String? = null) : MissionConfig()
 }
 
-enum class Difficulty {
-    EASY, MEDIUM, HARD
+enum class AlarmSound {
+    DEFAULT,
+    DIGITAL_CLOCK,
+    BELL_TOWER,
+    MORNING_BIRDS,
+    OCEAN_WAVES,
+    GENTLE_CHIMES,
+    ELECTRONIC_BEEP,
+    CLASSIC_ALARM
 }

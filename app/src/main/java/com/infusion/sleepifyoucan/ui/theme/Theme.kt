@@ -12,41 +12,52 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Dark color scheme using our custom palette
-// This app is dark-mode first since users open it in bed
+// Enhanced dark color scheme with modern colors
 private val SleepDarkColorScheme = darkColorScheme(
-    primary = PurpleNight,
+    primary = Coral,
     onPrimary = TextPrimary,
-    primaryContainer = PurpleNightLight,
-    onPrimaryContainer = BlackMuteDark,
-    
-    secondary = YellowSand,
-    onSecondary = BlackMuteDark,
-    secondaryContainer = YellowSandLight,
-    onSecondaryContainer = BlackMuteDark,
-    
-    tertiary = OrangeJuice,
+    primaryContainer = NavyLight,
+    onPrimaryContainer = TextPrimary,
+
+    secondary = Lavender,
+    onSecondary = TextPrimary,
+    secondaryContainer = DarkBlue,
+    onSecondaryContainer = TextPrimary,
+
+    tertiary = Mint,
     onTertiary = TextPrimary,
-    tertiaryContainer = OrangeJuiceLight,
-    onTertiaryContainer = BlackMuteDark,
-    
-    error = OrangeJuice,
+    tertiaryContainer = OceanBlue,
+    onTertiaryContainer = TextPrimary,
+
+    error = Error,
     onError = TextPrimary,
-    
-    background = BlackMute,
+    errorContainer = Color(0xFF2D1B1B),
+    onErrorContainer = Error,
+
+    background = DeepNavy,
     onBackground = TextPrimary,
-    
-    surface = BlackMuteSurface,
+
+    surface = DarkBlue,
     onSurface = TextPrimary,
-    surfaceVariant = BlackMuteDark,
+    surfaceVariant = NavyLight,
     onSurfaceVariant = TextSecondary,
-    
-    outline = TextSecondary,
+
+    surfaceTint = Coral,
+
+    outline = TextTertiary,
     outlineVariant = TextDisabled,
-    
+
     inverseSurface = TextPrimary,
-    inverseOnSurface = BlackMuteDark,
-    inversePrimary = PurpleNight
+    inverseOnSurface = DeepNavy,
+    inversePrimary = Coral,
+
+    surfaceContainer = OceanBlue,
+    surfaceContainerHigh = NavyLight,
+    surfaceContainerHighest = BlueLight,
+    surfaceContainerLow = DarkBlue,
+    surfaceContainerLowest = Midnight,
+
+    scrim = Color(0xFF000000)
 )
 
 @Composable

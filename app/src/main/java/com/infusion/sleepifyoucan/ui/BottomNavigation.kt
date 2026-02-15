@@ -5,9 +5,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -23,18 +25,21 @@ fun AppBottomNavigation(
     onTabSelected: (NavigationTab) -> Unit
 ) {
     NavigationBar(
-        containerColor = BlackMuteDark,
-        contentColor = TextSecondary
+        containerColor = NavyLight.copy(alpha = 0.95f),
+        contentColor = TextSecondary,
+        tonalElevation = 8.dp
     ) {
         NavigationTab.entries.forEach { tab ->
             val isSelected = selectedTab == tab
             
             NavigationBarItem(
                 icon = {
-                    Icon(
-                        imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
-                        contentDescription = tab.title
-                    )
+                    BounceAnimation(isPressed = isSelected) {
+                        Icon(
+                            imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
+                            contentDescription = tab.title
+                        )
+                    }
                 },
                 label = {
                     Text(
@@ -45,11 +50,11 @@ fun AppBottomNavigation(
                 selected = isSelected,
                 onClick = { onTabSelected(tab) },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = PurpleNight,
-                    selectedTextColor = PurpleNight,
-                    unselectedIconColor = TextSecondary,
-                    unselectedTextColor = TextSecondary,
-                    indicatorColor = PurpleNight.copy(alpha = 0.15f)
+                    selectedIconColor = Coral,
+                    selectedTextColor = Coral,
+                    unselectedIconColor = TextTertiary,
+                    unselectedTextColor = TextTertiary,
+                    indicatorColor = Coral.copy(alpha = 0.15f)
                 )
             )
         }
@@ -78,5 +83,10 @@ enum class NavigationTab(
         title = "Streak",
         selectedIcon = Icons.Filled.Star,
         unselectedIcon = Icons.Outlined.Star
+    ),
+    SLEEP(
+        title = "Sleep",
+        selectedIcon = Icons.Filled.Bedtime,
+        unselectedIcon = Icons.Outlined.Bedtime
     )
 }

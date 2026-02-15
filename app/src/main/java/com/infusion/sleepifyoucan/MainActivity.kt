@@ -14,9 +14,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -44,7 +44,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private val requestPermissionLauncher = registerForActivityResult(
+    private var showOnboarding by mutableStateOf(false)
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
@@ -57,6 +57,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Check if onboarding has been completed
+        val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val onboardingCompleted = prefs.getBoolean("onboarding_completed", false)
+        showOnboarding = !onboardingCompleted
+        
         checkAndRequestPermissions()
 
         val database = (application as SleepApplication).database
@@ -65,130 +70,190 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SleepIfYouCanTheme {
-                val navController = rememberNavController()
-                val viewModel: AlarmViewModel = viewModel(factory = AlarmViewModel.Factory(alarmRepository))
-                val settingsViewModel: SettingsViewModel = viewModel()
-                
-                // Track current selected tab
-                var selectedTab by remember { mutableStateOf(NavigationTab.HOME) }
-                
-                // Collect alarms
-                val alarms by viewModel.allAlarms.collectAsState(initial = emptyList())
-                val nextAlarm = alarms.filter { it.isEnabled }.minByOrNull { 
-                    it.hour * 60 + it.minute 
-                }
-                
-                // Streak data
-                var currentStreak by remember { mutableIntStateOf(0) }
-                var weeklyProgress by remember { mutableStateOf<Map<Long, Boolean>>(emptyMap()) }
-                var motivationalMessage by remember { mutableStateOf("Start your streak today!") }
-                
-                // Load streak data
-                val scope = rememberCoroutineScope()
-                LaunchedEffect(Unit) {
-                    scope.launch {
-                        currentStreak = streakRepository.getCurrentStreakCount()
-                        weeklyProgress = streakRepository.getWeeklyProgress()
-                        motivationalMessage = streakRepository.getMotivationalMessage()
+                if (showOnboarding) {
+                    OnboardingFlow(
+                        onComplete = {
+                            // Mark onboarding as completed
+                            getSharedPreferences("app_prefs", MODE_PRIVATE)
+                                .edit()
+                                .putBoolean("onboarding_completed", true)
+                                .apply()
+                            showOnboarding = false
+                        },
+                        onSkip = {
+                            // Mark onboarding as completed even when skipped
+                            getSharedPreferences("app_prefs", MODE_PRIVATE)
+                                .edit()
+                                .putBoolean("onboarding_completed", true)
+                                .apply()
+                            showOnboarding = false
+                        }
+                    )
+                } else {
+                    val navController = rememberNavController()
+                    val viewModel: AlarmViewModel = viewModel(factory = AlarmViewModel.Factory(alarmRepository))
+                    val settingsViewModel: SettingsViewModel = viewModel()
+                    
+                    // Track current selected tab
+                    var selectedTab by remember { mutableStateOf(NavigationTab.HOME) }
+                    
+                    // Collect alarms
+                    val alarms by viewModel.allAlarms.collectAsState(initial = emptyList())
+                    val nextAlarm = alarms.filter { it.isEnabled }.minByOrNull { 
+                        it.hour * 60 + it.minute 
                     }
-                }
+                    
+                    // Streak data
+                    var currentStreak by remember { mutableIntStateOf(0) }
+                    var weeklyProgress by remember { mutableStateOf<Map<Long, Boolean>>(emptyMap()) }
+                    var motivationalMessage by remember { mutableStateOf("Start your streak today!") }
+                    
+                    // Load streak data
+                    val scope = rememberCoroutineScope()
+                    LaunchedEffect(Unit) {
+                        scope.launch {
+                            currentStreak = streakRepository.getCurrentStreakCount()
+                            weeklyProgress = streakRepository.getWeeklyProgress()
+                            motivationalMessage = streakRepository.getMotivationalMessage()
+                        }
+                    }
 
-                Scaffold(
-                    containerColor = BlackMute,
-                    bottomBar = {
-                        AppBottomNavigation(
-                            selectedTab = selectedTab,
-                            onTabSelected = { selectedTab = it }
-                        )
-                    },
-                    floatingActionButton = {
-                        if (selectedTab == NavigationTab.ALARMS) {
-                            FloatingActionButton(
-                                onClick = {
-                                    if (checkExactAlarmPermission(this@MainActivity)) {
-                                        navController.navigate("add_edit")
-                                    }
-                                },
-                                containerColor = PurpleNight,
-                                contentColor = TextPrimary
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = "Add Alarm")
-                            }
-                        }
-                    }
-                ) { padding ->
-                    NavHost(
-                        navController = navController,
-                        startDestination = "main",
-                        modifier = Modifier.padding(padding)
-                    ) {
-                        composable("main") {
-                            when (selectedTab) {
-                                NavigationTab.HOME -> {
-                                    HomeScreen(
-                                        nextAlarm = nextAlarm,
-                                        currentStreak = currentStreak,
-                                        onAlarmClick = { selectedTab = NavigationTab.ALARMS },
-                                        onEditSleepTime = { /* TODO */ },
-                                        onSettingsClick = { navController.navigate("settings") }
-                                    )
-                                }
-                                NavigationTab.ALARMS -> {
-                                    AlarmListScreen(
-                                        viewModel = viewModel,
-                                        onAlarmClick = { alarm ->
-                                            navController.navigate("add_edit?alarmId=${alarm.id}")
+                    Scaffold(
+                        containerColor = DeepNavy,
+                        bottomBar = {
+                            AppBottomNavigation(
+                                selectedTab = selectedTab,
+                                onTabSelected = { selectedTab = it }
+                            )
+                        },
+                        floatingActionButton = {
+                            if (selectedTab == NavigationTab.ALARMS) {
+                                FloatingActionButton(
+                                    onClick = {
+                                        if (checkExactAlarmPermission(this@MainActivity)) {
+                                            navController.navigate("add_edit")
                                         }
-                                    )
-                                }
-                                NavigationTab.STREAK -> {
-                                    StreakScreen(
-                                        currentStreak = currentStreak,
-                                        weeklyProgress = weeklyProgress,
-                                        motivationalMessage = motivationalMessage
-                                    )
+                                    },
+                                    containerColor = Coral,
+                                    contentColor = TextPrimary
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Add Alarm")
                                 }
                             }
-                        }
-                        composable(
-                            "add_edit?alarmId={alarmId}",
-                            arguments = listOf(androidx.navigation.navArgument("alarmId") { 
-                                defaultValue = -1 
-                                type = androidx.navigation.NavType.IntType
-                            })
-                        ) { backStackEntry ->
-                            val alarmId = backStackEntry.arguments?.getInt("alarmId") ?: -1
-                            val alarmToEdit = if (alarmId != -1) {
-                                viewModel.allAlarms.collectAsState(initial = emptyList()).value.find { it.id == alarmId }
-                            } else null
-                            
-                            AddEditAlarmScreen(
-                                alarm = alarmToEdit,
-                                onSave = { alarm ->
-                                    if (alarmId != -1) {
-                                        viewModel.update(alarm)
-                                    } else {
-                                        viewModel.insert(alarm)
+                        },
+                        modifier = Modifier.padding(0.dp)
+                    ) { padding ->
+                        NavHost(
+                            navController = navController,
+                            startDestination = "main",
+                            modifier = Modifier.padding(padding)
+                        ) {
+                            composable("main") {
+                                when (selectedTab) {
+                                    NavigationTab.HOME -> {
+                                        HomeScreen(
+                                            nextAlarm = nextAlarm,
+                                            currentStreak = currentStreak,
+                                            onAlarmClick = { selectedTab = NavigationTab.ALARMS },
+                                            onEditSleepTime = { /* TODO */ },
+                                            onSettingsClick = { navController.navigate("settings") },
+                                            onStatisticsClick = { navController.navigate("statistics") }
+                                        )
                                     }
-                                    navController.popBackStack()
-                                },
-                                onCancel = {
-                                    navController.popBackStack()
+                                    NavigationTab.ALARMS -> {
+                                        AlarmListScreen(
+                                            viewModel = viewModel,
+                                            onAlarmClick = { alarm ->
+                                                navController.navigate("add_edit?alarmId=${alarm.id}")
+                                            }
+                                        )
+                                    }
+                                    NavigationTab.STREAK -> {
+                                        StreakScreen(
+                                            currentStreak = currentStreak,
+                                            weeklyProgress = weeklyProgress,
+                                            motivationalMessage = motivationalMessage
+                                        )
+                                    }
+                                    NavigationTab.SLEEP -> {
+                                        val sleepReports by (application as SleepApplication).sleepTrackingRepository.getRecentSleepReports().collectAsState(initial = emptyList())
+                                        
+                                        SleepReportScreen(
+                                            sleepReports = sleepReports,
+                                            onStartSleepTracking = {
+                                                scope.launch {
+                                                    (application as SleepApplication).sleepTrackingRepository.startSleepTracking()
+                                                }
+                                            },
+                                            onStopSleepTracking = {
+                                                scope.launch {
+                                                    (application as SleepApplication).sleepTrackingRepository.stopSleepTracking()
+                                                }
+                                            },
+                                            isTrackingActive = (application as SleepApplication).sleepTrackingRepository.isSleepTrackingActive()
+                                        )
+                                    }
                                 }
-                            )
-                        }
-                        
-                        // Settings Screen
-                        composable("settings") {
-                            val preferences by settingsViewModel.preferences.collectAsState()
+                            }
+                            composable(
+                                "add_edit?alarmId={alarmId}",
+                                arguments = listOf(androidx.navigation.navArgument("alarmId") { 
+                                    defaultValue = -1 
+                                    type = androidx.navigation.NavType.IntType
+                                })
+                            ) { backStackEntry ->
+                                val alarmId = backStackEntry.arguments?.getInt("alarmId") ?: -1
+                                val alarmToEdit = if (alarmId != -1) {
+                                    viewModel.allAlarms.collectAsState(initial = emptyList()).value.find { it.id == alarmId }
+                                } else null
+                                
+                                AddEditAlarmScreen(
+                                    alarm = alarmToEdit,
+                                    onSave = { alarm ->
+                                        if (alarmId != -1) {
+                                            viewModel.update(alarm)
+                                        } else {
+                                            viewModel.insert(alarm)
+                                        }
+                                        navController.popBackStack()
+                                    },
+                                    onCancel = {
+                                        navController.popBackStack()
+                                    }
+                                )
+                            }
                             
-                            SettingsScreen(
-                                preferences = preferences,
-                                onMissionAudioChange = { settingsViewModel.updateMissionAudioBehavior(it) },
-                                onEscapeModeChange = { settingsViewModel.updateEscapePreventionMode(it) },
-                                onVolumeEscalationChange = { settingsViewModel.updateVolumeEscalation(it) },
-                                onBack = { navController.popBackStack() }
-                            )
+                            // Settings Screen
+                            composable("settings") {
+                                val preferences by settingsViewModel.preferences.collectAsState()
+                                
+                                SettingsScreen(
+                                    preferences = preferences,
+                                    onMissionAudioChange = { settingsViewModel.updateMissionAudioBehavior(it) },
+                                    onEscapeModeChange = { settingsViewModel.updateEscapePreventionMode(it) },
+                                    onVolumeEscalationChange = { settingsViewModel.updateVolumeEscalation(it) },
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
+                            
+                            // Statistics Screen
+                            composable("statistics") {
+                                val sleepReports by (application as SleepApplication).sleepTrackingRepository.getRecentSleepReports().collectAsState(initial = emptyList())
+                                
+                                // Calculate statistics
+                                val totalAlarmsCompleted = alarmRepository.getAllAlarms().count { it.isEnabled }
+                                val averageSleepScore = if (sleepReports.isNotEmpty()) {
+                                    sleepReports.map { it.score }.average().toFloat()
+                                } else 0f
+                                
+                                StatisticsDashboard(
+                                    sleepReports = sleepReports,
+                                    currentStreak = currentStreak,
+                                    weeklyProgress = weeklyProgress,
+                                    totalAlarmsCompleted = totalAlarmsCompleted,
+                                    averageSleepScore = averageSleepScore
+                                )
+                            }
                         }
                     }
                 }

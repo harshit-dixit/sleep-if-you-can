@@ -19,10 +19,8 @@ import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import androidx.core.app.NotificationCompat
-import com.infusion.sleepifyoucan.AlarmActivity
 import com.infusion.sleepifyoucan.R
-import kotlinx.coroutines.*
+import com.infusion.sleepifyoucan.data.AlarmSound
 
 class RingtoneService : Service() {
 
@@ -112,6 +110,12 @@ class RingtoneService : Service() {
 
         val alarmId = intent?.getIntExtra("ALARM_ID", 0) ?: 0
         val ringtoneUriString = intent?.getStringExtra("RINGTONE_URI")
+        val alarmSoundString = intent?.getStringExtra("ALARM_SOUND")
+        val alarmSound = try {
+            AlarmSound.valueOf(alarmSoundString ?: "DEFAULT")
+        } catch (e: Exception) {
+            AlarmSound.DEFAULT
+        }
         val isVibrate = intent?.getBooleanExtra("IS_VIBRATE", true) ?: true
 
         // Prepare Activity Intent
@@ -142,7 +146,7 @@ class RingtoneService : Service() {
         // Use Alarm ID for notification to handle concurrent alarms (rare but possible)
         startForeground(if (alarmId != 0) alarmId else 1, notification)
 
-        startAlarm(ringtoneUriString, isVibrate)
+        startAlarm(ringtoneUriString, alarmSound, isVibrate)
         startVolumeEnforcement()
         
         // --- CRITICAL FIX: The Background Start Trap ---
@@ -166,7 +170,7 @@ class RingtoneService : Service() {
         return START_STICKY
     }
 
-    private fun startAlarm(ringtoneUriString: String?, isVibrate: Boolean) {
+    private fun startAlarm(ringtoneUriString: String?, alarmSound: AlarmSound, isVibrate: Boolean) {
         try {
             // Audio Focus
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -180,11 +184,10 @@ class RingtoneService : Service() {
                  // Simplified focus request for brevity, main logic is volume loop
              }
 
-            val alarmUri: Uri = if (ringtoneUriString != null) {
-                Uri.parse(ringtoneUriString)
-            } else {
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) 
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            // Select alarm sound based on AlarmSound enum
+            val alarmUri: Uri = when {
+                ringtoneUriString != null -> Uri.parse(ringtoneUriString)
+                else -> getAlarmSoundUri(alarmSound)
             }
 
             mediaPlayer = MediaPlayer().apply {
@@ -197,6 +200,8 @@ class RingtoneService : Service() {
                 )
                 isLooping = true
                 prepare()
+                // Start with lower volume for escalation
+                setVolume(0.3f, 0.3f)
                 start()
             }
 
@@ -214,27 +219,88 @@ class RingtoneService : Service() {
             e.printStackTrace()
         }
     }
+
+    private fun getAlarmSoundUri(alarmSound: AlarmSound): Uri {
+        return when (alarmSound) {
+            AlarmSound.DEFAULT -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                ?: Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_default)
+            AlarmSound.DIGITAL_CLOCK -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_digital_clock)
+            AlarmSound.BELL_TOWER -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_bell_tower)
+            AlarmSound.MORNING_BIRDS -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_morning_birds)
+            AlarmSound.OCEAN_WAVES -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_ocean_waves)
+            AlarmSound.GENTLE_CHIMES -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_gentle_chimes)
+            AlarmSound.ELECTRONIC_BEEP -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_electronic_beep)
+            AlarmSound.CLASSIC_ALARM -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_classic)
+        }
+    }
     
     private fun startVolumeEnforcement() {
         volumeJob = scope.launch {
-            while (isActive) {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            
+            // Volume escalation: gradually increase volume over 30 seconds
+            val escalationDurationMs = 30000L // 30 seconds
+            val escalationSteps = 30 // 30 steps
+            val volumeIncrement = maxVolume / escalationSteps
+            val stepDurationMs = escalationDurationMs / escalationSteps
+            
+            var currentStep = 0
+            var startTime = System.currentTimeMillis()
+            
+            while (isActive && currentStep < escalationSteps) {
                 try {
-                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-                    val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
-    
-                    if (currentVolume != maxVolume) {
-                        // The user tried to lower it! Force it back up.
+                    val currentTime = System.currentTimeMillis()
+                    val elapsedTime = currentTime - startTime
+                    
+                    // Calculate target volume based on elapsed time
+                    val targetStep = (elapsedTime / stepDurationMs).toInt().coerceIn(0, escalationSteps)
+                    
+                    if (targetStep > currentStep) {
+                        currentStep = targetStep
+                        val targetVolume = (volumeIncrement * currentStep).coerceIn(1, maxVolume)
+                        
+                        // Set system volume
                         audioManager.setStreamVolume(
                             AudioManager.STREAM_ALARM,
-                            maxVolume,
-                            0 // Flags: 0 avoids showing the system UI slider repeatedly
+                            targetVolume,
+                            0 // No UI flags
                         )
+                        
+                        // Also set MediaPlayer volume for finer control
+                        val mediaVolume = targetVolume.toFloat() / maxVolume.toFloat()
+                        mediaPlayer?.setVolume(mediaVolume, mediaVolume)
                     }
+                    
+                    // Check if user tried to lower volume and force it back
+                    val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+                    val expectedVolume = (volumeIncrement * currentStep).coerceIn(1, maxVolume)
+                    
+                    if (currentVolume < expectedVolume) {
+                        audioManager.setStreamVolume(
+                            AudioManager.STREAM_ALARM,
+                            expectedVolume,
+                            0
+                        )
+                        val mediaVolume = expectedVolume.toFloat() / maxVolume.toFloat()
+                        mediaPlayer?.setVolume(mediaVolume, mediaVolume)
+                    }
+                    
+                    delay(500) // Check every 500ms for smoother escalation
+                    
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    delay(1000)
                 }
-                delay(1000) // Check every second
+            }
+            
+            // Ensure we reach maximum volume at the end
+            try {
+                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
+                mediaPlayer?.setVolume(1.0f, 1.0f)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
