@@ -2,18 +2,17 @@ package com.infusion.sleepifyoucan.ui
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import com.infusion.sleepifyoucan.ui.theme.*
 
 /**
@@ -86,7 +85,7 @@ enum class NavigationTab(
     ),
     SLEEP(
         title = "Sleep",
-        selectedIcon = Icons.Filled.Bedtime,
-        unselectedIcon = Icons.Outlined.Bedtime
+        selectedIcon = Icons.Filled.DateRange,
+        unselectedIcon = Icons.Outlined.DateRange
     )
 }

@@ -4,23 +4,27 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.provider.Settings
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import androidx.core.app.NotificationCompat
+import com.infusion.sleepifyoucan.AlarmActivity
 import com.infusion.sleepifyoucan.R
 import com.infusion.sleepifyoucan.data.AlarmSound
+import kotlinx.coroutines.*
+import androidx.core.app.ServiceCompat
+import android.app.Service
 
 class RingtoneService : Service() {
 
@@ -223,15 +227,7 @@ class RingtoneService : Service() {
     private fun getAlarmSoundUri(alarmSound: AlarmSound): Uri {
         return when (alarmSound) {
             AlarmSound.DEFAULT -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                ?: Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_default)
-            AlarmSound.DIGITAL_CLOCK -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_digital_clock)
-            AlarmSound.BELL_TOWER -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_bell_tower)
-            AlarmSound.MORNING_BIRDS -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_morning_birds)
-            AlarmSound.OCEAN_WAVES -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_ocean_waves)
-            AlarmSound.GENTLE_CHIMES -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_gentle_chimes)
-            AlarmSound.ELECTRONIC_BEEP -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_electronic_beep)
-            AlarmSound.CLASSIC_ALARM -> Uri.parse("android.resource://" + packageName + "/" + R.raw.alarm_classic)
+            else -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         }
     }
     

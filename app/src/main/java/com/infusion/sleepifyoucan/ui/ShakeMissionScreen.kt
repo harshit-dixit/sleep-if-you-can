@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,11 +27,19 @@ fun ShakeMissionScreen(
 ) {
     var shakeTriggered by remember { mutableStateOf(false) }
 
-    // Detect shakes and trigger animation
-    LaunchedEffect(shakeDetector.shakeCount) {
-        if (shakeDetector.shakeCount > 0) {
-            shakeTriggered = true
+    DisposableEffect(Unit) {
+        shakeDetector.start {
             onShake()
+            shakeTriggered = true
+        }
+        onDispose {
+            shakeDetector.stop()
+        }
+    }
+    
+    // Auto-reset trigger for animation
+    LaunchedEffect(shakeTriggered) {
+        if (shakeTriggered) {
             kotlinx.coroutines.delay(300)
             shakeTriggered = false
         }

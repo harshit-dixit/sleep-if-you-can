@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.infusion.sleepifyoucan"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.infusion.sleepifyoucan"
         minSdk = 26 // Android 8.0 (Oreo) for Notification Channels
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 

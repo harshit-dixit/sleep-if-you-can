@@ -39,6 +39,7 @@ class AlarmScheduler(private val context: Context) {
             
             putExtra("RINGTONE_URI", alarm.ringtoneUri)
             putExtra("LABEL", alarm.label)
+            putExtra("ALARM_SOUND", alarm.alarmSound.name)
             putExtra("IS_SNOOZE", isSnooze)
             putExtra("IS_VIBRATE", alarm.isVibrate)
             putExtra("IS_SNOOZE_ENABLED", alarm.isSnoozeEnabled)

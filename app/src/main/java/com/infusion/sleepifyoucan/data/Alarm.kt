@@ -30,13 +30,8 @@ sealed class MissionConfig {
     data class Barcode(val expectedBarcode: String? = null) : MissionConfig()
 }
 
-enum class AlarmSound {
-    DEFAULT,
-    DIGITAL_CLOCK,
-    BELL_TOWER,
-    MORNING_BIRDS,
-    OCEAN_WAVES,
-    GENTLE_CHIMES,
-    ELECTRONIC_BEEP,
-    CLASSIC_ALARM
+enum class Difficulty {
+    EASY,
+    MEDIUM,
+    HARD
 }

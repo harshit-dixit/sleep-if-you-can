@@ -14,9 +14,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -28,11 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.*
+import androidx.navigation.compose.*
 import com.infusion.sleepifyoucan.data.AlarmRepository
 import com.infusion.sleepifyoucan.data.AlarmScheduler
 import com.infusion.sleepifyoucan.data.StreakRepository
@@ -44,7 +44,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private var showOnboarding by mutableStateOf(false)
+    private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
@@ -53,6 +53,8 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Permission Denied! Alarm might not show.", Toast.LENGTH_LONG).show()
         }
     }
+
+    private var showOnboarding by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -140,13 +142,11 @@ class MainActivity : ComponentActivity() {
                                     Icon(Icons.Default.Add, contentDescription = "Add Alarm")
                                 }
                             }
-                        },
-                        modifier = Modifier.padding(0.dp)
+                        }
                     ) { padding ->
                         NavHost(
                             navController = navController,
-                            startDestination = "main",
-                            modifier = Modifier.padding(padding)
+                            startDestination = "main"
                         ) {
                             composable("main") {
                                 when (selectedTab) {
@@ -197,9 +197,9 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(
                                 "add_edit?alarmId={alarmId}",
-                                arguments = listOf(androidx.navigation.navArgument("alarmId") { 
+                                arguments = listOf(navArgument("alarmId") { 
                                     defaultValue = -1 
-                                    type = androidx.navigation.NavType.IntType
+                                    type = NavType.IntType
                                 })
                             ) { backStackEntry ->
                                 val alarmId = backStackEntry.arguments?.getInt("alarmId") ?: -1
@@ -241,7 +241,8 @@ class MainActivity : ComponentActivity() {
                                 val sleepReports by (application as SleepApplication).sleepTrackingRepository.getRecentSleepReports().collectAsState(initial = emptyList())
                                 
                                 // Calculate statistics
-                                val totalAlarmsCompleted = alarmRepository.getAllAlarms().count { it.isEnabled }
+                                val alarms by viewModel.allAlarms.collectAsState(initial = emptyList())
+                                val totalAlarmsCompleted = alarms.count { it.isEnabled }
                                 val averageSleepScore = if (sleepReports.isNotEmpty()) {
                                     sleepReports.map { it.score }.average().toFloat()
                                 } else 0f

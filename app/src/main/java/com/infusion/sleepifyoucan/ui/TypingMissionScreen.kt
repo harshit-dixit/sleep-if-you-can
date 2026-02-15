@@ -12,15 +12,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.infusion.sleepifyoucan.ui.theme.BlackMute
-import com.infusion.sleepifyoucan.ui.theme.OrangeAccent
+import com.infusion.sleepifyoucan.ui.theme.*
 
 @Composable
 fun TypingMissionScreen(
@@ -121,7 +122,7 @@ fun TypingMissionScreen(
             val userInput = if (caseSensitive) currentInput else currentInput.uppercase()
             
             // Calculate how many characters match
-            val matchLength = target.zip(userInput).takeWhile { it.first == it.second }.count
+            val matchLength = target.zip(userInput).takeWhile { it.first == it.second }.count()
             matchLength.toFloat() / target.length.toFloat()
         } else 0f
         

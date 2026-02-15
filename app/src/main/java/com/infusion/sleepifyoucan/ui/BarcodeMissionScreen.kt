@@ -17,7 +17,7 @@ import androidx.core.content.ContextCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.infusion.sleepifyoucan.ui.theme.BlackMute
-import com.infusion.sleepifyoucan.ui.theme.OrangeAccent
+import com.infusion.sleepifyoucan.ui.theme.Coral
 
 @Composable
 fun BarcodeMissionScreen(
@@ -81,7 +81,7 @@ fun BarcodeMissionScreen(
             Text(
                 text = "Camera Permission Required",
                 style = MaterialTheme.typography.headlineMedium,
-                color = OrangeAccent,
+                color = Coral,
                 textAlign = TextAlign.Center
             )
             
@@ -99,7 +99,7 @@ fun BarcodeMissionScreen(
             Button(
                 onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = OrangeAccent,
+                    containerColor = Coral,
                     contentColor = androidx.compose.ui.graphics.Color.Black
                 )
             ) {
@@ -118,7 +118,7 @@ fun BarcodeMissionScreen(
             Text(
                 text = "Scan QR Code or Barcode",
                 style = MaterialTheme.typography.headlineLarge,
-                color = OrangeAccent,
+                color = Coral,
                 textAlign = TextAlign.Center
             )
             
@@ -152,7 +152,7 @@ fun BarcodeMissionScreen(
                     scanLauncher.launch(options)
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = OrangeAccent,
+                    containerColor = Coral,
                     contentColor = androidx.compose.ui.graphics.Color.Black
                 ),
                 modifier = Modifier.size(120.dp)
@@ -181,7 +181,7 @@ fun BarcodeMissionScreen(
                         Text(
                             text = "Scanned Code:",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = OrangeAccent
+                            color = Coral
                         )
                         Text(
                             text = result,

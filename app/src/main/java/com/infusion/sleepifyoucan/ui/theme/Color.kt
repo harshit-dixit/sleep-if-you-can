@@ -47,6 +47,7 @@ val Mint = Color(0xFF00D4AA)          // Success - fresh, calming
 val Gold = Color(0xFFFFD700)          // Achievement - rewarding, celebratory
 val Lavender = Color(0xFFB794F6)      // Secondary accent - creative, modern
 val SkyBlue = Color(0xFF87CEEB)       // Calm - peaceful, trustworthy
+val OrangeAccent = Color(0xFFFF8E53)  // Orange Accent
 
 // Dark Theme Backgrounds (Modern)
 val DeepNavy = Color(0xFF1A1A2E)       // Primary background - sophisticated

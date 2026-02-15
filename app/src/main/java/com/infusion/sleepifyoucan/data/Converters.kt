@@ -34,6 +34,20 @@ class Converters {
     }
 
     @TypeConverter
+    fun toMissionConfig(value: String): MissionConfig {
+        return try {
+            val wrapper = gson.fromJson(value, MissionConfigWrapper::class.java)
+            wrapper.toMissionConfig()
+        } catch (e: Exception) {
+            MissionConfig.Shake(20) // Fallback
+        }
+    }
+
+    @TypeConverter
+    fun fromAlarmSound(value: AlarmSound): String {
+        return value.name
+    }
+
     @TypeConverter
     fun toAlarmSound(value: String): AlarmSound {
         return try {
@@ -44,8 +58,23 @@ class Converters {
     }
 
     @TypeConverter
-    fun fromAlarmSound(value: AlarmSound): String {
-        return value.name
+    fun fromSleepQuality(value: SleepQuality): String = value.name
+
+    @TypeConverter
+    fun toSleepQuality(value: String): SleepQuality = try {
+        SleepQuality.valueOf(value)
+    } catch (e: Exception) {
+        SleepQuality.UNKNOWN
+    }
+
+    @TypeConverter
+    fun fromSleepEventType(value: SleepEventType): String = value.name
+
+    @TypeConverter
+    fun toSleepEventType(value: String): SleepEventType = try {
+        SleepEventType.valueOf(value)
+    } catch (e: Exception) {
+        SleepEventType.BEDTIME_START
     }
 }
 

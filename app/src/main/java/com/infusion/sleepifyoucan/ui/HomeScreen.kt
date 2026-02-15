@@ -9,7 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,7 +65,7 @@ fun HomeScreen(
                     .background(NavyLight.copy(alpha = 0.8f))
             ) {
                 Icon(
-                    Icons.Default.BarChart,
+                    Icons.Default.Info,
                     contentDescription = "Statistics",
                     tint = Coral
                 )

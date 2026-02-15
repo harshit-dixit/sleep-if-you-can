@@ -37,6 +37,7 @@ import com.infusion.sleepifyoucan.ui.MemoryMissionScreen
 import com.infusion.sleepifyoucan.utils.ShakeDetector
 import com.infusion.sleepifyoucan.utils.turnScreenOnAndKeyguardOff
 import com.infusion.sleepifyoucan.ui.theme.*
+import com.infusion.sleepifyoucan.ui.*
 
 class AlarmActivity : ComponentActivity() {
 

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.infusion.sleepifyoucan.ui.theme.BlackMute
+import com.infusion.sleepifyoucan.ui.theme.Coral
 import com.infusion.sleepifyoucan.ui.theme.OrangeAccent
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
