@@ -90,4 +90,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    
+    // ML Kit for Photo Mission
+    implementation("com.google.mlkit:image-labeling:17.0.7")
 }

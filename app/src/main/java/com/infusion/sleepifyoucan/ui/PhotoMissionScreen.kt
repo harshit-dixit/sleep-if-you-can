@@ -23,14 +23,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.LifecycleOwner
 import com.infusion.sleepifyoucan.ui.theme.BlackMute
 import com.infusion.sleepifyoucan.ui.theme.OrangeAccent
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.label.ImageLabeling
+import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCancellableCoroutine
+import java.util.concurrent.Executors
 
 @Composable
 fun PhotoMissionScreen(
@@ -50,7 +51,8 @@ fun PhotoMissionScreen(
     }
     
     var showCamera by remember { mutableStateOf(false) }
-    var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var isProcessing by remember { mutableStateOf(false) }
+    var feedbackMessage by remember { mutableStateOf<String?>(null) }
     
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -89,7 +91,7 @@ fun PhotoMissionScreen(
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "We need camera access to take photos for the mission",
+                text = "We need camera access to verify your photo mission",
                 style = MaterialTheme.typography.bodyLarge,
                 color = androidx.compose.ui.graphics.Color.Gray,
                 textAlign = TextAlign.Center
@@ -107,74 +109,20 @@ fun PhotoMissionScreen(
                 Text("Grant Camera Permission")
             }
         }
-    } else if (capturedImageUri != null) {
-        // Photo captured screen
+    } else if (isProcessing) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BlackMute)
-                .padding(24.dp),
+                .background(BlackMute),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = "Photo Captured!",
-                style = MaterialTheme.typography.headlineLarge,
-                color = OrangeAccent,
-                textAlign = TextAlign.Center
-            )
-            
+            CircularProgressIndicator(color = OrangeAccent)
             Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "Make sure your photo shows: $requiredObject",
-                style = MaterialTheme.typography.bodyLarge,
-                color = androidx.compose.ui.graphics.Color.White,
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        capturedImageUri = null
-                        showCamera = true
-                    },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = OrangeAccent
-                    )
-                ) {
-                    Text("Retake Photo")
-                }
-                
-                Button(
-                    onClick = onPhotoTaken,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangeAccent,
-                        contentColor = androidx.compose.ui.graphics.Color.Black
-                    )
-                ) {
-                    Text("Confirm Photo")
-                }
-            }
+            Text("Analyzing Photo...", color = OrangeAccent)
         }
-    } else if (showCamera) {
-        // Camera screen
-        CameraView(
-            onImageCaptured = { uri ->
-                capturedImageUri = uri
-                showCamera = false
-            },
-            onError = { error ->
-                // Handle error - for now just hide camera
-                showCamera = false
-            }
-        )
-    } else {
-        // Initial screen
+    } else if (feedbackMessage != null) {
+        // Verification Failed Screen
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -184,16 +132,16 @@ fun PhotoMissionScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Take a Photo!",
+                text = "Try Again!",
                 style = MaterialTheme.typography.headlineLarge,
-                color = OrangeAccent,
+                color = androidx.compose.ui.graphics.Color.Red,
                 textAlign = TextAlign.Center
             )
             
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "Take a photo that shows: $requiredObject",
+                text = feedbackMessage ?: "",
                 style = MaterialTheme.typography.bodyLarge,
                 color = androidx.compose.ui.graphics.Color.White,
                 textAlign = TextAlign.Center
@@ -202,21 +150,94 @@ fun PhotoMissionScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             Button(
-                onClick = { showCamera = true },
+                onClick = { 
+                    feedbackMessage = null
+                    showCamera = true 
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = OrangeAccent,
                     contentColor = androidx.compose.ui.graphics.Color.Black
                 )
             ) {
-                Text("Open Camera")
+                Text("Retake Photo")
             }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "Required: $requiredObject",
+                style = MaterialTheme.typography.bodyMedium,
+                color = androidx.compose.ui.graphics.Color.Gray
+            )
         }
+    } else {
+        // Camera View
+        CameraView(
+            requiredObject = requiredObject,
+            onImageCaptured = { file ->
+                isProcessing = true
+                showCamera = false
+                verifyImage(context, file, requiredObject) { success, topLabel ->
+                    isProcessing = false
+                    if (success) {
+                        onPhotoTaken()
+                    } else {
+                        feedbackMessage = "That doesn't look like a $requiredObject.\n" +
+                                (if (topLabel != null) "We saw a $topLabel." else "Could not identify object.")
+                    }
+                }
+            },
+            onError = { 
+                // Handle capture error by showing camera again
+                showCamera = true
+            }
+        )
     }
+}
+
+private fun verifyImage(
+    context: Context,
+    file: File,
+    requiredObject: String,
+    onResult: (Boolean, String?) -> Unit
+) {
+    val image: InputImage
+    try {
+        image = InputImage.fromFilePath(context, Uri.fromFile(file))
+    } catch (e: Exception) {
+        e.printStackTrace()
+        onResult(false, null)
+        return
+    }
+
+    val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
+    
+    labeler.process(image)
+        .addOnSuccessListener { labels ->
+            val topLabel = labels.maxByOrNull { it.confidence }?.text
+            
+            // Flexible matching: check if any label contains the required object string
+            // or if the required object contains the label (e.g. required="Cup" label="Coffee Cup")
+            val isMatch = labels.any { label -> 
+                label.text.contains(requiredObject, ignoreCase = true) || 
+                requiredObject.contains(label.text, ignoreCase = true)
+            }
+            
+            // Logging found labels for debugging (optional)
+            // labels.forEach { Log.d("MLKit", "${it.text} : ${it.confidence}") }
+            
+            onResult(isMatch, topLabel)
+        }
+        .addOnFailureListener { e ->
+            e.printStackTrace()
+            onResult(false, null)
+        }
 }
 
 @Composable
 private fun CameraView(
-    onImageCaptured: (Uri) -> Unit,
+    requiredObject: String,
+    onImageCaptured: (File) -> Unit,
     onError: (ImageCaptureException) -> Unit
 ) {
     val context = LocalContext.current
@@ -225,50 +246,66 @@ private fun CameraView(
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
     
-    AndroidView(
-        factory = { ctx ->
-            val previewView = PreviewView(ctx).apply {
-                scaleType = PreviewView.ScaleType.FILL_CENTER
-            }
-            
-            cameraProviderFuture.addListener({
-                try {
-                    val cameraProvider = cameraProviderFuture.get()
-                    
-                    // Preview
-                    val preview = Preview.Builder().build().also {
-                        it.setSurfaceProvider(previewView.surfaceProvider)
-                    }
-                    
-                    // Image capture
-                    imageCapture = ImageCapture.Builder().build()
-                    
-                    // Select back camera
-                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-                    
-                    // Bind to lifecycle
-                    cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
-                        lifecycleOwner,
-                        cameraSelector,
-                        preview,
-                        imageCapture
-                    )
-                } catch (e: Exception) {
-                    // Handle error
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            factory = { ctx ->
+                val previewView = PreviewView(ctx).apply {
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
                 }
-            }, ContextCompat.getMainExecutor(ctx))
-            
-            previewView
-        },
-        modifier = Modifier.fillMaxSize()
-    )
-    
-    // Camera controls overlay
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomCenter
-    ) {
+                
+                cameraProviderFuture.addListener({
+                    try {
+                        val cameraProvider = cameraProviderFuture.get()
+                        
+                        val preview = Preview.Builder().build().also {
+                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        }
+                        
+                        imageCapture = ImageCapture.Builder()
+                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                            .build()
+                        
+                        val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                        
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner,
+                            cameraSelector,
+                            preview,
+                            imageCapture
+                        )
+                    } catch (e: Exception) {
+                        // Handle error
+                    }
+                }, ContextCompat.getMainExecutor(ctx))
+                
+                previewView
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        // Overlay
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 48.dp)
+                .background(BlackMute.copy(alpha = 0.6f), CircleShape)
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Take a photo of:",
+                color = androidx.compose.ui.graphics.Color.White,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = requiredObject,
+                color = OrangeAccent,
+                style = MaterialTheme.typography.headlineSmall
+            )
+        }
+        
+        // Capture Button
         Button(
             onClick = {
                 takePhoto(
@@ -279,7 +316,8 @@ private fun CameraView(
                 )
             },
             modifier = Modifier
-                .padding(32.dp)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 48.dp)
                 .size(80.dp)
                 .clip(CircleShape),
             colors = ButtonDefaults.buttonColors(
@@ -295,14 +333,12 @@ private fun CameraView(
 private fun takePhoto(
     context: Context,
     imageCapture: ImageCapture?,
-    onImageCaptured: (Uri) -> Unit,
+    onImageCaptured: (File) -> Unit,
     onError: (ImageCaptureException) -> Unit
 ) {
     val imageCapture = imageCapture ?: return
     
-    // Create output file
     val outputFile = createOutputFile(context)
-    
     val outputFileOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
     
     imageCapture.takePicture(
@@ -310,8 +346,8 @@ private fun takePhoto(
         ContextCompat.getMainExecutor(context),
         object : ImageCapture.OnImageSavedCallback {
             override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                val savedUri = Uri.fromFile(outputFile)
-                onImageCaptured(savedUri)
+                // Pass the file, not just URI, because ML Kit handles Files easily with fromFilePath
+                onImageCaptured(outputFile)
             }
             
             override fun onError(exception: ImageCaptureException) {

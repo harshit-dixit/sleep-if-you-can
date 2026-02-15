@@ -76,6 +76,29 @@ fun AddEditAlarmScreen(
     var mathDifficulty by remember { mutableStateOf((alarm?.missionConfig as? MissionConfig.Math)?.difficulty ?: Difficulty.EASY) }
     var mathCount by remember { mutableIntStateOf((alarm?.missionConfig as? MissionConfig.Math)?.problemCount ?: 3) }
 
+    // Mission Config State - TYPING
+    var typingWord by remember { mutableStateOf((alarm?.missionConfig as? MissionConfig.Typing)?.targetWord ?: "I WILL WAKE UP") }
+    var typingCase by remember { mutableStateOf((alarm?.missionConfig as? MissionConfig.Typing)?.caseSensitive ?: false) }
+    
+    // Mission Config State - SQUAT
+    var squatCount by remember { mutableIntStateOf((alarm?.missionConfig as? MissionConfig.Squat)?.targetSquats ?: 10) }
+    
+    // Mission Config State - STEP
+    var stepCount by remember { mutableIntStateOf((alarm?.missionConfig as? MissionConfig.Step)?.targetSteps ?: 50) }
+    
+    // Mission Config State - PHOTO
+    var photoLabel by remember { mutableStateOf((alarm?.missionConfig as? MissionConfig.Photo)?.requiredObject ?: "Laptop") }
+    
+    // Mission Config State - BARCODE
+    var barcodeValue by remember { mutableStateOf((alarm?.missionConfig as? MissionConfig.Barcode)?.expectedBarcode ?: "") }
+    
+    // Barcode Scanner Launcher
+    val barcodeLauncher = rememberLauncherForActivityResult(com.journeyapps.barcodescanner.ScanContract()) { result ->
+        if (result.contents != null) {
+            barcodeValue = result.contents
+        }
+    }
+
     // Ringtone Picker
     val ringtoneLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -113,7 +136,12 @@ fun AddEditAlarmScreen(
                         val config = when (missionType) {
                             MissionType.SHAKE -> MissionConfig.Shake(shakeTarget)
                             MissionType.MATH -> MissionConfig.Math(mathDifficulty, mathCount)
-                            MissionType.MEMORY -> MissionConfig.Memory(4) // Default to 4x4
+                            MissionType.MEMORY -> MissionConfig.Memory(4)
+                            MissionType.TYPING -> MissionConfig.Typing(typingWord, typingCase)
+                            MissionType.SQUAT -> MissionConfig.Squat(squatCount)
+                            MissionType.STEP -> MissionConfig.Step(stepCount)
+                            MissionType.PHOTO -> MissionConfig.Photo(photoLabel)
+                            MissionType.BARCODE -> MissionConfig.Barcode(if (barcodeValue.isBlank()) null else barcodeValue)
                         }
                         
                         val newAlarm = Alarm(
@@ -245,12 +273,19 @@ fun AddEditAlarmScreen(
             
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                        MissionType.entries.forEach { type ->
-                             FilterChip(
+                    // Mission Type Selector
+                    ScrollableTabRow(
+                        selectedTabIndex = missionType.ordinal,
+                        edgePadding = 0.dp,
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        MissionType.entries.forEachIndexed { index, type ->
+                            Tab(
                                 selected = missionType == type,
                                 onClick = { missionType = type },
-                                label = { Text(type.name) }
+                                text = { Text(type.name, fontSize = 12.sp) }
                             )
                         }
                     }
@@ -258,37 +293,99 @@ fun AddEditAlarmScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     // Mission Config UI
-                    if (missionType == MissionType.SHAKE) {
-                        Text("Target Shakes: $shakeTarget")
-                        Slider(
-                            value = shakeTarget.toFloat(),
-                            onValueChange = { shakeTarget = it.toInt() },
-                            valueRange = 5f..100f,
-                            steps = 19
-                        )
-                    } else if (missionType == MissionType.MATH) {
-                         Text("Problem Count: $mathCount")
-                         Slider(
-                            value = mathCount.toFloat(),
-                            onValueChange = { mathCount = it.toInt() },
-                            valueRange = 1f..10f,
-                            steps = 9
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Difficulty")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Difficulty.entries.forEach { diff ->
-                                FilterChip(
-                                    selected = mathDifficulty == diff,
-                                    onClick = { mathDifficulty = diff },
-                                    label = { Text(diff.name) }
-                                )
+                    when (missionType) {
+                        MissionType.SHAKE -> {
+                            Text("Target Shakes: $shakeTarget")
+                            Slider(
+                                value = shakeTarget.toFloat(),
+                                onValueChange = { shakeTarget = it.toInt() },
+                                valueRange = 5f..100f,
+                                steps = 19
+                            )
+                        }
+                        MissionType.MATH -> {
+                             Text("Problem Count: $mathCount")
+                             Slider(
+                                value = mathCount.toFloat(),
+                                onValueChange = { mathCount = it.toInt() },
+                                valueRange = 1f..10f,
+                                steps = 9
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Difficulty")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Difficulty.entries.forEach { diff ->
+                                    FilterChip(
+                                        selected = mathDifficulty == diff,
+                                        onClick = { mathDifficulty = diff },
+                                        label = { Text(diff.name) }
+                                    )
+                                }
                             }
                         }
-                    } else if (missionType == MissionType.MEMORY) {
-                        Text("Memory Match - 4x4 Grid")
-                        // No extra config for now
+                        MissionType.MEMORY -> {
+                            Text("Memory Match - 4x4 Grid")
+                        }
+                        MissionType.TYPING -> {
+                            OutlinedTextField(
+                                value = typingWord,
+                                onValueChange = { typingWord = it },
+                                label = { Text("Phrase to Type") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Case Sensitive", modifier = Modifier.weight(1f))
+                                Switch(checked = typingCase, onCheckedChange = { typingCase = it })
+                            }
+                        }
+                        MissionType.SQUAT -> {
+                            Text("Target Squats: $squatCount")
+                            Slider(
+                                value = squatCount.toFloat(),
+                                onValueChange = { squatCount = it.toInt() },
+                                valueRange = 5f..50f,
+                                steps = 9
+                            )
+                        }
+                        MissionType.STEP -> {
+                            Text("Target Steps: $stepCount")
+                            Slider(
+                                value = stepCount.toFloat(),
+                                onValueChange = { stepCount = it.toInt() },
+                                valueRange = 10f..200f,
+                                steps = 19
+                            )
+                        }
+                        MissionType.PHOTO -> {
+                            OutlinedTextField(
+                                value = photoLabel,
+                                onValueChange = { photoLabel = it },
+                                label = { Text("Object to Photograph (e.g. Cup)") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text("ML Kit will try to identify this object.", style = MaterialTheme.typography.bodySmall)
+                        }
+                        MissionType.BARCODE -> {
+                            Text("Barcode Mission")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (barcodeValue.isNotEmpty()) {
+                                Text("Registered Code: $barcodeValue", color = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                            Button(
+                                onClick = {
+                                    val options = com.journeyapps.barcodescanner.ScanOptions().apply {
+                                        setPrompt("Scan barcode to register")
+                                        setBeepEnabled(true)
+                                        setOrientationLocked(false)
+                                    }
+                                    barcodeLauncher.launch(options)
+                                }
+                            ) {
+                                Text(if (barcodeValue.isEmpty()) "Scan Barcode" else "Rescan Barcode")
+                            }
+                        }
                     }
                 }
             }
@@ -346,7 +443,7 @@ fun WeekDaySelector(
 }
 
 enum class MissionType {
-    SHAKE, MATH, MEMORY
+    SHAKE, MATH, MEMORY, TYPING, SQUAT, STEP, PHOTO, BARCODE
 }
 
 fun getMissionType(config: MissionConfig?): MissionType {
@@ -354,6 +451,11 @@ fun getMissionType(config: MissionConfig?): MissionType {
         is MissionConfig.Shake -> MissionType.SHAKE
         is MissionConfig.Math -> MissionType.MATH
         is MissionConfig.Memory -> MissionType.MEMORY
+        is MissionConfig.Typing -> MissionType.TYPING
+        is MissionConfig.Squat -> MissionType.SQUAT
+        is MissionConfig.Step -> MissionType.STEP
+        is MissionConfig.Photo -> MissionType.PHOTO
+        is MissionConfig.Barcode -> MissionType.BARCODE
         else -> MissionType.SHAKE
     }
 }

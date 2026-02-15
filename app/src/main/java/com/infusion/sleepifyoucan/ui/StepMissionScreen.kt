@@ -39,6 +39,33 @@ fun StepMissionScreen(
     val stepCounter = remember { sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) }
     val accelerometer = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
     
+    // Permission state for Activity Recognition (needed for Step Counter on Android 10+)
+    var hasPermission by remember {
+        mutableStateOf(
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.ACTIVITY_RECOGNITION
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            } else {
+                true // Not required before Android 10
+            }
+        )
+    }
+
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasPermission = granted
+    }
+
+    // Request permission on start
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (!hasPermission && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            permissionLauncher.launch(android.Manifest.permission.ACTIVITY_RECOGNITION)
+        }
+    }
+    
     var stepCount by remember { mutableIntStateOf(0) }
     var acceleration by remember { mutableFloatStateOf(0f) }
     var usingHardwareCounter by remember { mutableStateOf(true) }

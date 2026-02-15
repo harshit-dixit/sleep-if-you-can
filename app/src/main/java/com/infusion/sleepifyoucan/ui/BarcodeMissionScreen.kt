@@ -14,8 +14,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.google.zxing.integration.android.IntentIntegrator
-import com.google.zxing.integration.android.IntentResult
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.infusion.sleepifyoucan.ui.theme.BlackMute
 import com.infusion.sleepifyoucan.ui.theme.OrangeAccent
 
@@ -36,17 +36,28 @@ fun BarcodeMissionScreen(
     }
     
     var scanResult by remember { mutableStateOf<String?>(null) }
-    var isScanning by remember { mutableStateOf(false) }
+    
+    // Scanner Launcher using ZXing's ScanContract
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            scanResult = result.contents
+        }
+    }
     
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasPermission = granted
         if (granted) {
-            startBarcodeScan(context) { result ->
-                scanResult = result
-                isScanning = false
+             val options = ScanOptions().apply {
+                setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                setPrompt("Scan a QR code or barcode")
+                setCameraId(0)
+                setBeepEnabled(true)
+                setBarcodeImageEnabled(false)
+                setOrientationLocked(false)
             }
+            scanLauncher.launch(options)
         }
     }
     
@@ -128,40 +139,29 @@ fun BarcodeMissionScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            if (isScanning) {
-                CircularProgressIndicator(
-                    color = OrangeAccent,
-                    modifier = Modifier.size(48.dp)
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
+            Button(
+                onClick = {
+                    val options = ScanOptions().apply {
+                        setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                        setPrompt("Scan a QR code or barcode")
+                        setCameraId(0)
+                        setBeepEnabled(true)
+                        setBarcodeImageEnabled(false)
+                        setOrientationLocked(false)
+                    }
+                    scanLauncher.launch(options)
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangeAccent,
+                    contentColor = androidx.compose.ui.graphics.Color.Black
+                ),
+                modifier = Modifier.size(120.dp)
+            ) {
                 Text(
-                    text = "Opening camera scanner...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = androidx.compose.ui.graphics.Color.Gray
+                    text = "📱\nScan",
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center
                 )
-            } else {
-                Button(
-                    onClick = {
-                        isScanning = true
-                        startBarcodeScan(context) { result ->
-                            scanResult = result
-                            isScanning = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangeAccent,
-                        contentColor = androidx.compose.ui.graphics.Color.Black
-                    ),
-                    modifier = Modifier.size(120.dp)
-                ) {
-                    Text(
-                        text = "📱\nScan",
-                        style = MaterialTheme.typography.headlineSmall,
-                        textAlign = TextAlign.Center
-                    )
-                }
             }
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -203,24 +203,4 @@ fun BarcodeMissionScreen(
             )
         }
     }
-}
-
-private fun startBarcodeScan(
-    context: android.content.Context,
-    onResult: (String?) -> Unit
-) {
-    val integrator = IntentIntegrator(context as android.app.Activity)
-    integrator.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES)
-    integrator.setPrompt("Scan a QR code or barcode")
-    integrator.setCameraId(0) // Use back camera
-    integrator.setBeepEnabled(true)
-    integrator.setBarcodeImageEnabled(false)
-    integrator.setOrientationLocked(false)
-    
-    // Set up result handler
-    integrator.initiateScan()
-    
-    // Note: In a real implementation, you'd handle the result in onActivityResult
-    // For this demo, we'll simulate a successful scan
-    // In production, you'd need to integrate with the activity's onActivityResult
 }
