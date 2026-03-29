@@ -11,37 +11,24 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import android.os.Parcelable
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.content.Context
 import com.infusion.sleepifyoucan.data.Difficulty
 import com.infusion.sleepifyoucan.data.MissionConfig
 import com.infusion.sleepifyoucan.ui.theme.*
 import kotlin.random.Random
-
-// Helper for Math Problems (Moved from AlarmActivity or Activity-level state)
-// Since we want to persist state in VM, the generation should primarily happen in VM.
-// BUT, refactoring that logic now might be invasive.
-// For now, I will keep the generation here or just display what VM gives.
-// The VM `MissionState.Math` has `problemsLeft`. It doesn't store the CURRENT problem string.
-// To support rotation survival (SavedState), we SHOULD store the active problem in VM.
-// However, the `MissionState.Math` I defined in Step 89 is simple:
-// data class Math(val difficulty: String, val solveCount: Int, val totalProblems: Int)
-// It misses the "Current Problem".
-// I'll stick to generating it here for simplicity of migration, acknowledging that
-// rotating screen might generate a new problem (minor UX annoyance but valid MVP).
-// OR I can use `rememberSaveable` here to keep current problem across rotation!
 
 @Composable
 fun MathMissionScreen(
@@ -50,11 +37,10 @@ fun MathMissionScreen(
     totalProblems: Int,
     onSolved: () -> Unit
 ) {
-    // Generate problems locally.
-    // We use a key to regenerating when solveCount changes.
-    // Use rememberSaveable to keep the current problem if screen rotates.
-    
-    var currentProblem by remember(solveCount) { 
+    // Generate a new problem only when solveCount changes (not on every recomposition/rotation).
+    // Using remember keyed on solveCount: regenerates problem on each solve, stable for recompositions.
+    // (MathProblem cannot be rememberSaveable'd without a Parcel/Saver — key-based remember is idiomatic here.)
+    val currentProblem by remember(solveCount) { 
         mutableStateOf(generateOneMathProblem(difficulty))
     }
     
@@ -68,20 +54,13 @@ fun MathMissionScreen(
     // Shake animation
     val shakeOffset = remember { Animatable(0f) }
     
-    // Context for haptic feedback
-    val context = LocalContext.current
     val view = LocalView.current
     
     // Trigger shake animation on error
     LaunchedEffect(isError) {
         if (isError) {
-            // Haptic feedback
             view.performHapticFeedback(android.view.HapticFeedbackConstants.REJECT)
-            
-            // Flash red
             flashColor = OrangeJuice.copy(alpha = 0.4f)
-            
-            // Shake animation
             shakeOffset.animateTo(
                 targetValue = 0f,
                 animationSpec = keyframes {
@@ -95,8 +74,6 @@ fun MathMissionScreen(
                     0f at 400
                 }
             )
-            
-            // Clear flash
             flashColor = Color.Transparent
         }
     }
@@ -104,17 +81,13 @@ fun MathMissionScreen(
     // Trigger success flash
     LaunchedEffect(showSuccess) {
         if (showSuccess) {
-            // Haptic feedback
             view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-            
-            // Flash green
             flashColor = GreenLand.copy(alpha = 0.4f)
             kotlinx.coroutines.delay(300)
             flashColor = Color.Transparent
         }
     }
     
-    // Animate background color on correct/wrong answer
     val inputBackgroundColor by animateColorAsState(
         targetValue = when {
             showSuccess -> GreenLand.copy(alpha = 0.3f)
@@ -137,74 +110,80 @@ fun MathMissionScreen(
                 .fillMaxSize()
                 .graphicsLayer { translationX = shakeOffset.value }
                 .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        // Progress
-        Text(
-            "Problem ${solveCount + 1} / $totalProblems",
-            style = MaterialTheme.typography.titleMedium,
-            color = TextSecondary
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Problem Display
-        Text(
-            text = currentProblem.display,
-            style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.Bold,
-            color = PurpleNight
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Input Display
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(80.dp)
-                .background(inputBackgroundColor, RoundedCornerShape(16.dp)),
-            contentAlignment = Alignment.Center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            // Progress — clamped so it never shows "6/5" etc.
+            val displaySolveCount = solveCount.coerceAtMost(totalProblems)
             Text(
-                text = userInput.ifEmpty { "?" },
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = if (userInput.isEmpty()) TextDisabled else TextPrimary
+                "Problem ${displaySolveCount + 1} / $totalProblems",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextSecondary,
+                modifier = Modifier.semantics { contentDescription = "Problem ${displaySolveCount + 1} of $totalProblems" }
             )
-        }
+            
+            Spacer(modifier = Modifier.height(32.dp))
 
-        Spacer(modifier = Modifier.weight(1f))
+            // Problem Display
+            Text(
+                text = currentProblem.display,
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Bold,
+                color = PurpleNight,
+                modifier = Modifier.semantics { contentDescription = "Math problem: ${currentProblem.display}" }
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
 
-        // Numeric Keypad
-        NumericKeypad(
-            onNumberClick = { num -> 
-                if (userInput.length < 5) userInput += num 
-                isError = false
-                showSuccess = false
-            },
-            onDeleteClick = { 
-                if (userInput.isNotEmpty()) userInput = userInput.dropLast(1)
-                isError = false
-                showSuccess = false
-            },
-            onEnterClick = {
-                if (userInput.toIntOrNull() == currentProblem.answer) {
-                    showSuccess = true
-                    userInput = ""
-                    // Notify VM
-                    onSolved()
-                } else {
-                    isError = true
-                    userInput = ""
-                }
+            // Input Display
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .background(inputBackgroundColor, RoundedCornerShape(16.dp))
+                    .semantics { contentDescription = if (userInput.isEmpty()) "Enter your answer" else "Current answer: $userInput" },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = userInput.ifEmpty { "?" },
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (userInput.isEmpty()) TextDisabled else TextPrimary
+                )
             }
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-    }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Numeric Keypad
+            NumericKeypad(
+                onNumberClick = { num -> 
+                    if (userInput.length < 5) userInput += num 
+                    isError = false
+                    showSuccess = false
+                },
+                onDeleteClick = { 
+                    if (userInput.isNotEmpty()) userInput = userInput.dropLast(1)
+                    isError = false
+                    showSuccess = false
+                },
+                onEnterClick = {
+                    val answer = userInput.toIntOrNull()
+                    if (answer == currentProblem.answer) {
+                        showSuccess = true
+                        isError = false
+                        userInput = ""
+                        onSolved()
+                    } else {
+                        isError = true
+                        showSuccess = false
+                        userInput = ""
+                    }
+                }
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     } // Close outer Box
 }
 
@@ -229,6 +208,11 @@ fun NumericKeypad(
     ) {
         items(keys.size) { index ->
             val key = keys[index]
+            val description = when (key) {
+                "DEL" -> "Delete last digit"
+                "OK" -> "Submit answer"
+                else -> "Digit $key"
+            }
             Button(
                 onClick = {
                     when (key) {
@@ -239,7 +223,8 @@ fun NumericKeypad(
                 },
                 modifier = Modifier
                     .aspectRatio(1.5f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .semantics { contentDescription = description },
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = when (key) {
@@ -260,7 +245,20 @@ fun NumericKeypad(
     }
 }
 
-data class MathProblem(val display: String, val answer: Int)
+data class MathProblem(val display: String, val answer: Int) : Parcelable {
+    companion object {
+        @JvmField val CREATOR = object : android.os.Parcelable.Creator<MathProblem> {
+            override fun createFromParcel(source: android.os.Parcel) =
+                MathProblem(source.readString() ?: "", source.readInt())
+            override fun newArray(size: Int) = arrayOfNulls<MathProblem>(size)
+        }
+    }
+    override fun writeToParcel(dest: android.os.Parcel, flags: Int) {
+        dest.writeString(display)
+        dest.writeInt(answer)
+    }
+    override fun describeContents() = 0
+}
 
 fun generateOneMathProblem(difficultyName: String): MathProblem {
     val difficulty = try {
@@ -270,17 +268,16 @@ fun generateOneMathProblem(difficultyName: String): MathProblem {
     }
     
     val (a, b) = when (difficulty) {
-        Difficulty.EASY -> Pair(Random.nextInt(1, 10), Random.nextInt(1, 10)) // 5 + 3
-        Difficulty.MEDIUM -> Pair(Random.nextInt(10, 50), Random.nextInt(1, 10)) // 23 + 6
-        Difficulty.HARD -> Pair(Random.nextInt(10, 99), Random.nextInt(10, 99)) // 45 + 88
+        Difficulty.EASY -> Pair(Random.nextInt(1, 10), Random.nextInt(1, 10))
+        Difficulty.MEDIUM -> Pair(Random.nextInt(10, 50), Random.nextInt(1, 10))
+        Difficulty.HARD -> Pair(Random.nextInt(10, 99), Random.nextInt(10, 99))
     }
     val isAdd = Random.nextBoolean()
-    if (isAdd) {
-        return MathProblem("$a + $b", a + b)
+    return if (isAdd) {
+        MathProblem("$a + $b", a + b)
     } else {
-        // Ensure positive result for simplicity
         val max = maxOf(a, b)
         val min = minOf(a, b)
-        return MathProblem("$max - $min", max - min)
+        MathProblem("$max - $min", max - min)
     }
 }

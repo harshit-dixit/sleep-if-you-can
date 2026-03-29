@@ -18,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.infusion.sleepifyoucan.data.MissionConfig
 import com.infusion.sleepifyoucan.ui.theme.*
+import kotlin.math.sqrt
 
 @Composable
 fun MemoryMissionScreen(
@@ -79,8 +81,9 @@ fun MemoryMissionScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Dynamic grid columns based on grid size (4x4 -> 4 cols)
-        val columns = 4 // Fixed to 4 for now for 4x4
+        // Dynamic grid columns: sqrt(totalCards) gives the side length of a square grid.
+        // Minimum 2 columns to avoid degenerate layouts.
+        val columns = sqrt(state.cards.size.toFloat()).toInt().coerceAtLeast(2)
         
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
@@ -89,12 +92,14 @@ fun MemoryMissionScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
+                .semantics { contentDescription = "Memory card grid, ${state.matchedPairs} pairs matched" }
         ) {
             items(state.cards.size) { index ->
                 val card = state.cards[index]
                 MemoryCardItem(
                     card = card,
-                    onClick = { onCardClick(index) }
+                    onClick = { onCardClick(index) },
+                    index = index
                 )
             }
         }
@@ -105,8 +110,14 @@ fun MemoryMissionScreen(
 @Composable
 fun MemoryCardItem(
     card: Card,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    index: Int = 0
 ) {
+    val accessibilityDesc = when {
+        card.isMatched -> "Card ${index + 1}: matched, ${card.symbol}"
+        card.isFlipped -> "Card ${index + 1}: flipped, ${card.symbol}"
+        else -> "Card ${index + 1}: face down, tap to flip"
+    }
     val rotation by animateFloatAsState(
         targetValue = if (card.isFlipped || card.isMatched) 180f else 0f,
         animationSpec = tween(400),
@@ -120,6 +131,7 @@ fun MemoryCardItem(
                 rotationY = rotation
                 cameraDistance = 12f * density
             }
+            .semantics { contentDescription = accessibilityDesc }
             .clickable(enabled = !card.isFlipped && !card.isMatched) { onClick() }
     ) {
         if (rotation <= 90f) {

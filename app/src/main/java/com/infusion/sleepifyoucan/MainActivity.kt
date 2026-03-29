@@ -357,12 +357,14 @@ fun AlarmItemCard(
 }
 
 fun checkExactAlarmPermission(context: Context): Boolean {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         if (!alarmManager.canScheduleExactAlarms()) {
-            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+            // Navigate to the exact alarm settings page — the only reliable way to grant this
+            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
             context.startActivity(intent)
-            Toast.makeText(context, "Please grant 'Alarms & Reminders' permission", Toast.LENGTH_LONG).show()
             return false
         }
     }

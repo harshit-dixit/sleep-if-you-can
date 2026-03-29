@@ -29,6 +29,7 @@ import com.infusion.sleepifyoucan.data.Converters
 import com.infusion.sleepifyoucan.data.MissionConfig
 import com.infusion.sleepifyoucan.data.StreakRepository
 import com.infusion.sleepifyoucan.service.RingtoneService
+import com.infusion.sleepifyoucan.ui.AlarmEvent
 import com.infusion.sleepifyoucan.ui.AlarmRingingViewModel
 import com.infusion.sleepifyoucan.ui.MissionState
 import com.infusion.sleepifyoucan.ui.ShakeMissionScreen
@@ -53,10 +54,12 @@ class AlarmActivity : ComponentActivity() {
         } else {
             MissionConfig.Shake()
         }
+        val alarmScheduler = AlarmScheduler(this)
         
         AlarmRingingViewModel.Factory(
-            AlarmRepository(app.database.alarmDao(), AlarmScheduler(this)),
+            AlarmRepository(app.database.alarmDao(), alarmScheduler),
             StreakRepository(app.database.streakDao(), this),
+            alarmScheduler,
             alarmId,
             missionConfig,
             this
@@ -84,18 +87,28 @@ class AlarmActivity : ComponentActivity() {
                     color = BlackMute
                 ) {
                     val missionState by viewModel.missionState.collectAsState()
+                    val snoozeCount by viewModel.snoozeCount.collectAsState()
                     
-                    // Side-effect: If Completed, finish activity
-                    LaunchedEffect(missionState) {
-                        if (missionState is MissionState.Completed) {
-                            stopService()
-                            finish()
+                    // One-shot events from ViewModel (snooze, finish)
+                    LaunchedEffect(Unit) {
+                        viewModel.events.collect { event ->
+                            when (event) {
+                                is AlarmEvent.StopAndFinish -> {
+                                    stopService()
+                                    finish()
+                                }
+                                is AlarmEvent.SnoozeAndFinish -> {
+                                    stopService()
+                                    finish()
+                                }
+                            }
                         }
                     }
 
                     AlarmRingingScreenHost(
                         label = intent.getStringExtra("LABEL"),
-                        isSnoozeEnabled = intent.getBooleanExtra("IS_SNOOZE_ENABLED", true),
+                        isSnoozeEnabled = intent.getBooleanExtra("IS_SNOOZE_ENABLED", true) &&
+                                snoozeCount < AlarmRingingViewModel.MAX_SNOOZE_ATTEMPTS,
                         snoozeDuration = intent.getIntExtra("SNOOZE_DURATION", 5),
                         viewModel = viewModel,
                         shakeDetector = shakeDetector

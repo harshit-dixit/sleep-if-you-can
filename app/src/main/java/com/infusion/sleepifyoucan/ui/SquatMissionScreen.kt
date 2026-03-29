@@ -5,14 +5,19 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import androidx.compose.foundation.shape.RoundedCornerShape
+import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -20,13 +25,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.infusion.sleepifyoucan.ui.theme.BlackMute
 import com.infusion.sleepifyoucan.ui.theme.OrangeAccent
 import kotlin.math.abs
 import kotlin.math.sqrt
+
+private const val SQUAT_TAG = "SquatMissionScreen"
 
 @Composable
 fun SquatMissionScreen(
@@ -36,112 +41,99 @@ fun SquatMissionScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    
-    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
-    val accelerometer = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
-    
+
+    val sensorManager = remember {
+        try { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
+        catch (e: Exception) { Log.e(SQUAT_TAG, "Failed to get SensorManager", e); null }
+    }
+    val accelerometer = remember { sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
+
     var acceleration by remember { mutableFloatStateOf(0f) }
     var squatPhase by remember { mutableStateOf(SquatPhase.WAITING) }
-    
+    var sensorError by remember { mutableStateOf(false) }
+
     val sensorListener = remember {
         object : SensorEventListener {
-            private var lastAcceleration = 0f
-            private var minAcceleration = Float.MAX_VALUE
-            private var maxAcceleration = Float.MIN_VALUE
-            
             override fun onSensorChanged(event: SensorEvent) {
-                if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                if (event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
+                try {
                     val x = event.values[0]
                     val y = event.values[1]
                     val z = event.values[2]
-                    
-                    // Calculate magnitude of acceleration
                     val magnitude = sqrt(x * x + y * y + z * z)
-                    
-                    // Remove gravity (approximately 9.81 m/s²)
                     val linearAcceleration = abs(magnitude - SensorManager.GRAVITY_EARTH)
-                    
                     acceleration = linearAcceleration
-                    
-                    // Simple squat detection algorithm
-                    // Squats typically show a pattern: down (deceleration) -> up (acceleration)
+
+                    // State machine:
+                    // WAITING -> detect quick downward movement start
+                    // GOING_DOWN -> waiting for deceleration (bottom of squat)
+                    // BOTTOM -> waiting for upward push
+                    // GOING_UP -> detect return to rest = squat complete
                     when (squatPhase) {
                         SquatPhase.WAITING -> {
-                            if (linearAcceleration > 2.0f) { // Significant upward acceleration
+                            if (linearAcceleration > 2.5f) {
                                 squatPhase = SquatPhase.GOING_DOWN
-                                minAcceleration = linearAcceleration
                             }
                         }
                         SquatPhase.GOING_DOWN -> {
-                            if (linearAcceleration < 1.0f) { // Slowing down (bottom of squat)
+                            if (linearAcceleration < 0.8f) {
                                 squatPhase = SquatPhase.BOTTOM
-                                maxAcceleration = linearAcceleration
                             }
-                            minAcceleration = minOf(minAcceleration, linearAcceleration)
                         }
                         SquatPhase.BOTTOM -> {
-                            if (linearAcceleration > 2.5f) { // Accelerating up
+                            if (linearAcceleration > 3.0f) {
                                 squatPhase = SquatPhase.GOING_UP
                             }
                         }
                         SquatPhase.GOING_UP -> {
-                            if (linearAcceleration < 1.5f) { // Slowing down at top
+                            if (linearAcceleration < 1.2f) {
                                 // Completed a squat!
                                 onSquatDetected()
                                 squatPhase = SquatPhase.WAITING
-                                minAcceleration = Float.MAX_VALUE
-                                maxAcceleration = Float.MIN_VALUE
                             }
-                            maxAcceleration = maxOf(maxAcceleration, linearAcceleration)
                         }
                     }
+                } catch (e: Exception) {
+                    Log.e(SQUAT_TAG, "Error in accelerometer listener", e)
                 }
             }
-            
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-                // Not used
-            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
     }
-    
-    // Register sensor listener when composable is active
-    DisposableEffect(sensorManager, accelerometer, sensorListener) {
-        sensorManager.registerListener(
-            sensorListener,
-            accelerometer,
-            SensorManager.SENSOR_DELAY_GAME
-        )
-        
-        onDispose {
-            sensorManager.unregisterListener(sensorListener)
+
+    fun registerSensor() {
+        if (sensorManager == null || accelerometer == null) { sensorError = true; return }
+        try {
+            sensorManager.registerListener(sensorListener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
+        } catch (e: Exception) {
+            Log.e(SQUAT_TAG, "Failed to register accelerometer", e)
+            sensorError = true
         }
     }
-    
-    // Handle lifecycle events
+
+    fun unregisterSensor() {
+        try { sensorManager?.unregisterListener(sensorListener) }
+        catch (e: Exception) { Log.w(SQUAT_TAG, "Failed to unregister accelerometer", e) }
+    }
+
+    DisposableEffect(sensorManager, accelerometer) {
+        registerSensor()
+        onDispose { unregisterSensor() }
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> {
-                    sensorManager.registerListener(
-                        sensorListener,
-                        accelerometer,
-                        SensorManager.SENSOR_DELAY_GAME
-                    )
-                }
-                Lifecycle.Event.ON_PAUSE -> {
-                    sensorManager.unregisterListener(sensorListener)
-                }
+                Lifecycle.Event.ON_RESUME -> registerSensor()
+                Lifecycle.Event.ON_PAUSE -> unregisterSensor()
                 else -> {}
             }
         }
-        
         lifecycleOwner.lifecycle.addObserver(observer)
-        
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -154,36 +146,48 @@ fun SquatMissionScreen(
             text = "Do Squats!",
             style = MaterialTheme.typography.headlineLarge,
             color = OrangeAccent,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { contentDescription = "Do Squats mission" }
         )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
-            text = "Hold your phone in your pocket and perform squats",
+            text = "Hold your phone in your hand and perform squats",
             style = MaterialTheme.typography.bodyLarge,
             color = androidx.compose.ui.graphics.Color.Gray,
             textAlign = TextAlign.Center
         )
-        
+
+        if (sensorError) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF4A1010))
+            ) {
+                Text(
+                    text = "⚠️ Accelerometer unavailable.\nPlease switch to a different alarm mission.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = androidx.compose.ui.graphics.Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(48.dp))
-        
-        // Progress indicator
+
         Box(
             modifier = Modifier
                 .size(200.dp)
                 .clip(CircleShape)
-                .background(androidx.compose.ui.graphics.Color.DarkGray),
+                .background(androidx.compose.ui.graphics.Color.DarkGray)
+                .semantics { contentDescription = "Squats done: $currentSquats of $targetSquats" },
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "$currentSquats",
-                    style = TextStyle(
-                        fontSize = 48.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = OrangeAccent
-                    )
+                    style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.Bold, color = OrangeAccent)
                 )
                 Text(
                     text = "/ $targetSquats",
@@ -192,38 +196,35 @@ fun SquatMissionScreen(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
-        // Phase indicator
+
         val phaseText = when (squatPhase) {
-            SquatPhase.WAITING -> "Ready to start"
-            SquatPhase.GOING_DOWN -> "Going down..."
-            SquatPhase.BOTTOM -> "Bottom position"
-            SquatPhase.GOING_UP -> "Coming up..."
+            SquatPhase.WAITING -> "⏸ Ready — start your squat"
+            SquatPhase.GOING_DOWN -> "⬇ Going down…"
+            SquatPhase.BOTTOM -> "⬆ Push up!"
+            SquatPhase.GOING_UP -> "↑ Coming up…"
         }
-        
+
         Text(
             text = phaseText,
             style = MaterialTheme.typography.headlineSmall,
             color = androidx.compose.ui.graphics.Color.White,
             textAlign = TextAlign.Center
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
-        // Acceleration indicator
+
         Text(
-            text = "Acceleration: %.2f".format(acceleration),
-            style = MaterialTheme.typography.bodyMedium,
-            color = androidx.compose.ui.graphics.Color.Gray
+            text = "Accel: ${"%.2f".format(acceleration)}",
+            style = MaterialTheme.typography.labelSmall,
+            color = androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.6f)
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
-        // Progress bar
+
         LinearProgressIndicator(
-            progress = { currentSquats.toFloat() / targetSquats.toFloat() },
+            progress = { (currentSquats.toFloat() / targetSquats.toFloat()).coerceIn(0f, 1f) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(12.dp)

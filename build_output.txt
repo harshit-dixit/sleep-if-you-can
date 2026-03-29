@@ -1,0 +1,95 @@
+﻿> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:kspDebugKotlin
+
+> Task :app:compileDebugKotlin
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/AlarmActivity.kt:89:25 Variable 'missionState' is never used
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/MainActivity.kt:89:25 Variable 'alarms' is never used
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/data/AlarmScheduler.kt:115:21 Variable 'checkDay' is never used
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/service/RingtoneService.kt:180:17 Variable 'audioManager' is never used
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/service/RingtoneService.kt:181:17 Variable 'focusRequest' is never used
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/AlarmRingingViewModel.kt:296:31 Parameter 'requestState' is never used
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/PhotoMissionScreen.kt:43:9 Variable 'lifecycleOwner' is never used
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/PhotoMissionScreen.kt:43:26 'LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/PhotoMissionScreen.kt:245:26 'LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/PhotoMissionScreen.kt:340:9 Name shadowed: imageCapture
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/SettingsScreen.kt:75:38 'VolumeUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.VolumeUp
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/SettingsScreen.kt:317:28 'KeyboardArrowRight: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.KeyboardArrowRight
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/theme/Theme.kt:66:5 Parameter 'darkTheme' is never used
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/theme/Theme.kt:75:20 'setter for statusBarColor: Int' is deprecated. Deprecated in Java
+w: file:///D:/Projects/sleep-if-you-can/app/src/main/java/com/infusion/sleepifyoucan/ui/theme/Theme.kt:76:20 'setter for navigationBarColor: Int' is deprecated. Deprecated in Java
+
+> Task :app:compileDebugJavaWithJavac
+Java compiler version 21 has deprecated support for compiling with source/target version 8.
+Try one of the following options:
+    1. [Recommended] Use Java toolchain with a lower language version
+    2. Set a higher source/target version
+    3. Use a lower version of the JDK running the build (if you're not using Java toolchain)
+For more details on how to configure these settings, see https://developer.android.com/build/jdks.
+To suppress this warning, set android.javaCompile.suppressSourceTargetDeprecationWarning=true in gradle.properties.
+.\gradlew.bat : warning: [options] source value 8 is 
+obsolete and will be removed in a future release
+At line:1 char:1
++ .\gradlew.bat assembleDebug 2>&1 | Out-File -FilePath 
+.\build_output. ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: [ 
+   optio... future release:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: [options] target value 8 is obsolete and will 
+be removed in a future release
+warning: [options] To suppress warnings about obsolete 
+options, use -Xlint:-options.
+3 warnings
+
+> Task :app:processDebugJavaRes
+> Task :app:dexBuilderDebug
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+
+[Incubating] Problems report is available at: file:///D:/Projects/sleep-if-you-can/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.1.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 50s
+37 actionable tasks: 10 executed, 27 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.1.0/userguide/configuration_cache_enabling.html

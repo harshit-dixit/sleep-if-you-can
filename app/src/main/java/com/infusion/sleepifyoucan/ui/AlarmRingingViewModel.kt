@@ -3,16 +3,19 @@ package com.infusion.sleepifyoucan.ui
 import android.os.Parcelable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.infusion.sleepifyoucan.data.Alarm
 import com.infusion.sleepifyoucan.data.AlarmRepository
+import com.infusion.sleepifyoucan.data.AlarmScheduler
 import com.infusion.sleepifyoucan.data.MissionConfig
 import com.infusion.sleepifyoucan.data.StreakRepository
 import com.infusion.sleepifyoucan.service.RingtoneService
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
@@ -80,6 +83,12 @@ sealed class MissionState : Parcelable {
     object Completed : MissionState()
 }
 
+// One-shot events for the Activity to handle
+sealed class AlarmEvent {
+    object StopAndFinish : AlarmEvent()
+    data class SnoozeAndFinish(val durationMillis: Long) : AlarmEvent()
+}
+
 @Parcelize
 data class Card(
     val id: Int,
@@ -94,6 +103,7 @@ class AlarmRingingViewModel(
     private val savedStateHandle: SavedStateHandle,
     private val alarmRepository: AlarmRepository,
     private val streakRepository: StreakRepository,
+    private val alarmScheduler: AlarmScheduler,
     private val alarmId: Int, // Passed via Factory
     private val missionConfig: MissionConfig // Passed via Factory
 ) : ViewModel() {
@@ -101,6 +111,18 @@ class AlarmRingingViewModel(
     // Persistent State
     private val _missionState = savedStateHandle.getStateFlow<MissionState>("mission_state", MissionState.Initial)
     val missionState: StateFlow<MissionState> = _missionState
+
+    // Snooze attempt counter (max 2 snoozes allowed)
+    private val _snoozeCount = savedStateHandle.getStateFlow("snooze_count", 0)
+    val snoozeCount: StateFlow<Int> = _snoozeCount
+
+    // One-shot events flow (not persisted in SavedState)
+    private val _events = MutableSharedFlow<AlarmEvent>(extraBufferCapacity = 1)
+    val events: SharedFlow<AlarmEvent> = _events.asSharedFlow()
+
+    companion object {
+        const val MAX_SNOOZE_ATTEMPTS = 2
+    }
 
     // initialize mission if needed
     fun initializeMission() {
@@ -115,21 +137,22 @@ class AlarmRingingViewModel(
                 is MissionConfig.Math -> MissionState.Math(
                     difficulty = missionConfig.difficulty.name,
                     solveCount = 0,
-                    totalProblems = missionConfig.problemCount + penalty // +1-10 extra problems
+                    totalProblems = (missionConfig.problemCount + penalty).coerceAtLeast(1) // +1-10 extra problems, min 1
                 )
                 is MissionConfig.Memory -> {
-                    val cards = generateMemoryCards(missionConfig.gridSize)
-                    MissionState.Memory(cards = cards, gridSize = missionConfig.gridSize)
+                    val gridSize = missionConfig.gridSize.coerceAtLeast(2) // Minimum 2x2
+                    val cards = generateMemoryCards(gridSize)
+                    MissionState.Memory(cards = cards, gridSize = gridSize)
                 }
                 is MissionConfig.Typing -> MissionState.Typing(
                     targetWord = missionConfig.targetWord,
                     caseSensitive = missionConfig.caseSensitive
                 )
                 is MissionConfig.Squat -> MissionState.Squat(
-                    target = missionConfig.targetSquats + (penalty * 2) // +2 squats per escape level
+                    target = (missionConfig.targetSquats + (penalty * 2)).coerceAtLeast(1) // +2 squats per escape level
                 )
                 is MissionConfig.Step -> MissionState.Step(
-                    target = missionConfig.targetSteps + (penalty * 10) // +10 steps per escape level
+                    target = (missionConfig.targetSteps + (penalty * 10)).coerceAtLeast(1) // +10 steps per escape level
                 )
                 is MissionConfig.Photo -> MissionState.Photo(
                     requiredObject = missionConfig.requiredObject
@@ -159,14 +182,13 @@ class AlarmRingingViewModel(
     fun onTypingInput(input: String) {
         val current = _missionState.value
         if (current is MissionState.Typing) {
-            val newInput = input
             val target = if (current.caseSensitive) current.targetWord else current.targetWord.uppercase()
-            val userInput = if (current.caseSensitive) newInput else newInput.uppercase()
+            val userInput = if (current.caseSensitive) input else input.uppercase()
             
             if (userInput == target) {
                 finishMission("TYPING")
             } else {
-                updateState(current.copy(currentInput = newInput))
+                updateState(current.copy(currentInput = input))
             }
         }
     }
@@ -209,9 +231,8 @@ class AlarmRingingViewModel(
             if (current.expectedBarcode == null || current.expectedBarcode == scannedCode) {
                 updateState(current.copy(scannedBarcode = scannedCode))
                 finishMission("BARCODE")
-            } else {
-                // Wrong barcode, don't update state - user can try again
             }
+            // Wrong barcode — state unchanged, user tries again
         }
     }
 
@@ -225,6 +246,7 @@ class AlarmRingingViewModel(
                     alarmRepository.toggleEnabled(alarm, false)
                 }
                 updateState(MissionState.Completed)
+                _events.emit(AlarmEvent.StopAndFinish)
             }
         }
     }
@@ -272,11 +294,7 @@ class AlarmRingingViewModel(
     }
 
     private fun checkForMatch(requestState: MissionState.Memory, index1: Int, index2: Int) {
-        // Reload latest state to ensure we don't overwrite concurrent changes (though rare here)
         val current = _missionState.value as? MissionState.Memory ?: return
-        
-        // Guard: Verify we are still in the state where we want to check these
-        // (Simplified: just proceed with logic on 'current')
         
         val cards = current.cards.toMutableList()
         val card1 = cards[index1]
@@ -308,7 +326,37 @@ class AlarmRingingViewModel(
             ))
         }
     }
-    
+
+    /**
+     * Snooze the alarm. Capped at MAX_SNOOZE_ATTEMPTS.
+     * Each successive snooze adds a penalty to the snoozeDuration (+1 min per attempt).
+     */
+    fun snooze() {
+        val currentSnoozeCount = _snoozeCount.value
+        if (currentSnoozeCount >= MAX_SNOOZE_ATTEMPTS) {
+            // Snooze cap reached — do nothing (button should be hidden or disabled by UI)
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val alarm = alarmRepository.getAlarmById(alarmId) ?: return@launch
+                // Snooze duration from alarm config (in minutes), plus penalty for repeated snoozes
+                val baseMinutes = alarm.snoozeDuration.toLong()
+                val penaltyMinutes = currentSnoozeCount.toLong() // +1 min per snooze attempt
+                val durationMillis = (baseMinutes + penaltyMinutes) * 60_000L
+
+                alarmScheduler.scheduleSnooze(alarm, durationMillis)
+                savedStateHandle["snooze_count"] = currentSnoozeCount + 1
+                _events.emit(AlarmEvent.SnoozeAndFinish(durationMillis))
+            } catch (e: Exception) {
+                android.util.Log.e("AlarmRingingViewModel", "Failed to schedule snooze", e)
+            }
+        }
+    }
+
+    // --- Helpers ---
+
     private fun finishMission(type: String) {
         viewModelScope.launch {
             streakRepository.recordSuccessfulWakeUp(alarmId, type)
@@ -316,23 +364,6 @@ class AlarmRingingViewModel(
             updateState(MissionState.WakeUpCheck)
         }
     }
-
-    fun snooze() {
-         viewModelScope.launch {
-             val alarm = alarmRepository.getAlarmById(alarmId)
-             // Logic for snooze scheduling is handled in Repository or Activity side usually, 
-             // but here we just signal to Activity to finish. 
-             // Actually, we should call AlarmScheduler.scheduleSnooze here if we have it?
-             // The original Activity called `AlarmScheduler(...).scheduleSnooze`.
-             // Ideally we inject AlarmScheduler. Since we don't have it injected yet, 
-             // we'll rely on the Activity to handle the actual scheduling based on a boolean/event?
-             // OR better: Inject AlarmScheduler.
-             // For now, I'll emit a Snooze "Event" or just let Activity handle it?
-             // Let's assume the VM should do it. I'll need AlarmScheduler dependency.
-         }
-    }
-
-    // --- Helpers ---
 
     private fun updateState(newState: MissionState) {
         savedStateHandle["mission_state"] = newState
@@ -344,7 +375,7 @@ class AlarmRingingViewModel(
         val symbols = listOf(
              "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼",
              "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔",
-             "🐧", "🐦", "fw", "🐺", "🐗", "🐴", "🦄", "🐝",
+             "🐧", "🐦", "🦅", "🐺", "🐗", "🐴", "🦄", "🐝",
              "🐛", "🦋", "🐌", "🐞", "🐜", "🦟", "🦗", "🕷"
         ).shuffled().take(pairCount)
         
@@ -359,6 +390,7 @@ class AlarmRingingViewModel(
     class Factory(
         private val alarmRepository: AlarmRepository,
         private val streakRepository: StreakRepository,
+        private val alarmScheduler: AlarmScheduler,
         private val alarmId: Int,
         private val missionConfig: MissionConfig,
         owner: androidx.savedstate.SavedStateRegistryOwner,
@@ -375,6 +407,7 @@ class AlarmRingingViewModel(
                     handle,
                     alarmRepository,
                     streakRepository,
+                    alarmScheduler,
                     alarmId,
                     missionConfig
                 ) as T

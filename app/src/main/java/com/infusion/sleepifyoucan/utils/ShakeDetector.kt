@@ -13,8 +13,10 @@ class ShakeDetector(context: Context) : SensorEventListener {
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     
     // Config
-    private val SHAKE_THRESHOLD_GRAVITY = 2.0F // Reduced threshold slightly for better detection
-    private val SHAKE_SLOP_TIME_MS = 500
+    // 2.7g threshold: deliberate enough to avoid pocket/table false positives,
+    // low enough to be easily triggered by hand shaking.
+    private val SHAKE_THRESHOLD_GRAVITY = 2.7F
+    private val SHAKE_SLOP_TIME_MS = 400 // Minimum ms between detected shakes
     private var shakeTimestamp: Long = 0
     
     private var onShakeListener: (() -> Unit)? = null
@@ -22,7 +24,8 @@ class ShakeDetector(context: Context) : SensorEventListener {
     fun start(listener: () -> Unit) {
         onShakeListener = listener
         accelerometer?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+            // SENSOR_DELAY_GAME gives ~50Hz sampling — good balance of accuracy and battery
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
     }
 
