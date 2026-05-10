@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -72,7 +73,7 @@ class MainActivity : ComponentActivity() {
                     val settingsViewModel: SettingsViewModel = viewModel()
 
                     // Track current selected tab — default to ALARMS
-                    var selectedTab by remember { mutableStateOf<NavDestination>(NavDestination.ALARMS) }
+                    var selectedTab by remember { mutableStateOf(AppDestination.ALARMS) }
 
                     // Track if we're on add/edit route
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -117,7 +118,7 @@ class MainActivity : ComponentActivity() {
                         },
                         floatingActionButton = {
                             // Show FAB only on ALARMS tab and not on add/edit screen
-                            if (selectedTab == NavDestination.ALARMS && !isOnAddEdit) {
+                            if (selectedTab == AppDestination.ALARMS && !isOnAddEdit) {
                                 FloatingActionButton(
                                     onClick = {
                                         if (checkExactAlarmPermission(this@MainActivity)) {
@@ -140,7 +141,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             composable("main") {
                                 when (selectedTab) {
-                                    NavDestination.ALARMS -> {
+                                    AppDestination.ALARMS -> {
                                         AlarmListScreen(
                                             viewModel = viewModel,
                                             onAlarmClick = { alarm ->
@@ -148,14 +149,14 @@ class MainActivity : ComponentActivity() {
                                             }
                                         )
                                     }
-                                    NavDestination.STREAK -> {
+                                    AppDestination.STREAK -> {
                                         StreakScreen(
                                             currentStreak = currentStreak,
                                             weeklyProgress = weeklyProgress,
                                             motivationalMessage = motivationalMessage
                                         )
                                     }
-                                    NavDestination.SETTINGS -> {
+                                    AppDestination.SETTINGS -> {
                                         val preferences by settingsViewModel.preferences.collectAsState()
 
                                         SettingsScreen(
@@ -254,7 +255,7 @@ fun AlarmListScreen(
                             .padding(32.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AccessAlarm,
+                            imageVector = Icons.Default.Alarm,
                             contentDescription = "No alarms",
                             modifier = Modifier.size(64.dp),
                             tint = Terracotta.copy(alpha = 0.5f)

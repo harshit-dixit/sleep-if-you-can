@@ -373,12 +373,21 @@ fun AddEditAlarmScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        "${missionType.emoji} ${missionType.displayName} Settings",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = missionType.toIcon(),
+                            contentDescription = null,
+                            tint = Terracotta,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "${missionType.displayName} Settings",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     
                     // Try Mission Button
                     TextButton(

@@ -60,7 +60,7 @@ private fun symbolToIcon(symbol: String): ImageVector = when (symbol) {
     "mountain" -> Icons.Default.Terrain
     "butterfly" -> Icons.Default.EmojiNature
     "fish" -> Icons.Default.SetMeal
-    "bird" -> Icons.Default.Flutter
+    "bird" -> Icons.Default.Flight
     "shell" -> Icons.Default.Spa
     else -> Icons.Default.HelpOutline
 }

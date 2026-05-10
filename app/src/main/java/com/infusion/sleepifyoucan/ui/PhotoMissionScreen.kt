@@ -331,6 +331,16 @@ private fun CameraView(
     }
 }
 
+private fun createOutputFile(context: Context): File {
+    val mediaDir = context.externalMediaDirs.firstOrNull()?.let {
+        File(it, "SleepIfYouCan").apply { mkdirs() }
+    }
+    return File(
+        mediaDir ?: context.filesDir,
+        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis()) + ".jpg"
+    )
+}
+
 private fun takePhoto(
     context: Context,
     imageCapture: ImageCapture?,
@@ -338,7 +348,7 @@ private fun takePhoto(
     onError: (ImageCaptureException) -> Unit
 ) {
     val imageCapture = imageCapture ?: return
-    
+
     val outputFile = createOutputFile(context)
     val outputFileOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
     

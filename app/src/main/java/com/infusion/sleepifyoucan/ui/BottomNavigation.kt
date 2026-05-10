@@ -30,14 +30,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.infusion.sleepifyoucan.ui.theme.*
 
-enum class NavDestination {
+enum class AppDestination {
     ALARMS, STREAK, SETTINGS
 }
 
 @Composable
 fun BottomNavigationBar(
-    currentDestination: NavDestination,
-    onNavigate: (NavDestination) -> Unit
+    currentDestination: AppDestination,
+    onNavigate: (AppDestination) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -48,21 +48,21 @@ fun BottomNavigationBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         NavItem(
-            selected = currentDestination == NavDestination.ALARMS,
-            onClick = { onNavigate(NavDestination.ALARMS) },
-            icon = if (currentDestination == NavDestination.ALARMS) Icons.Filled.Alarm else Icons.Outlined.Alarm,
+            selected = currentDestination == AppDestination.ALARMS,
+            onClick = { onNavigate(AppDestination.ALARMS) },
+            icon = if (currentDestination == AppDestination.ALARMS) Icons.Filled.Alarm else Icons.Outlined.Alarm,
             label = "Alarms"
         )
         NavItem(
-            selected = currentDestination == NavDestination.STREAK,
-            onClick = { onNavigate(NavDestination.STREAK) },
-            icon = if (currentDestination == NavDestination.STREAK) Icons.Filled.LocalFireDepartment else Icons.Outlined.LocalFireDepartment,
+            selected = currentDestination == AppDestination.STREAK,
+            onClick = { onNavigate(AppDestination.STREAK) },
+            icon = if (currentDestination == AppDestination.STREAK) Icons.Filled.LocalFireDepartment else Icons.Outlined.LocalFireDepartment,
             label = "Streak"
         )
         NavItem(
-            selected = currentDestination == NavDestination.SETTINGS,
-            onClick = { onNavigate(NavDestination.SETTINGS) },
-            icon = if (currentDestination == NavDestination.SETTINGS) Icons.Filled.Settings else Icons.Outlined.Settings,
+            selected = currentDestination == AppDestination.SETTINGS,
+            onClick = { onNavigate(AppDestination.SETTINGS) },
+            icon = if (currentDestination == AppDestination.SETTINGS) Icons.Filled.Settings else Icons.Outlined.Settings,
             label = "Settings"
         )
     }
