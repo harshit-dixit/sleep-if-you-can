@@ -10,6 +10,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,8 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.infusion.sleepifyoucan.ui.theme.BlackMute
-import com.infusion.sleepifyoucan.ui.theme.OrangeAccent
+import com.infusion.sleepifyoucan.ui.theme.*
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -74,7 +77,6 @@ fun StepMissionScreen(
         }
     }
 
-    // Try to get sensors — wrapped in try-catch for devices that may throw on getSystemService
     val sensorManager = remember {
         try { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
         catch (e: Exception) { Log.e(TAG, "Failed to get SensorManager", e); null }
@@ -83,17 +85,14 @@ fun StepMissionScreen(
     val stepCounter = remember { sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) }
     val accelerometer = remember { sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
 
-    // Use hardware step counter when available and permission granted
     val useHardwareSensor = stepCounter != null && hasPermission
 
     var usingHardwareCounter by remember { mutableStateOf(useHardwareSensor) }
     var sensorError by remember { mutableStateOf(false) }
 
-    // Debugging values (shown in UI for threshold tuning)
     var debugAcceleration by remember { mutableFloatStateOf(0f) }
     var debugWindowAvg by remember { mutableFloatStateOf(0f) }
 
-    // --- Hardware Step Counter Listener ---
     val stepSensorListener = remember {
         object : SensorEventListener {
             private var initialStepCount = -1f
@@ -121,7 +120,6 @@ fun StepMissionScreen(
         }
     }
 
-    // --- Accelerometer-based Step Listener with windowed average ---
     val accelStepListener = remember {
         object : SensorEventListener {
             private val window = ArrayDeque<Float>(WINDOW_SIZE)
@@ -139,14 +137,12 @@ fun StepMissionScreen(
 
                     debugAcceleration = linearAccel
 
-                    // Maintain rolling window
                     if (window.size >= WINDOW_SIZE) window.removeFirst()
                     window.addLast(linearAccel)
                     val avg = window.average().toFloat()
                     debugWindowAvg = avg
 
                     val now = System.currentTimeMillis()
-                    // Rising-edge detection: avg crosses above threshold for the first time
                     if (avg > STEP_THRESHOLD && !wasAboveThreshold && now - lastStepTime > MIN_STEP_INTERVAL_MS) {
                         onStepDetected()
                         lastStepTime = now
@@ -163,7 +159,6 @@ fun StepMissionScreen(
         }
     }
 
-    // Helper: register sensors safely
     fun registerSensors() {
         if (sensorManager == null) { sensorError = true; return }
         try {
@@ -191,13 +186,11 @@ fun StepMissionScreen(
         }
     }
 
-    // Register on first composition
     DisposableEffect(useHardwareSensor) {
         registerSensors()
         onDispose { unregisterSensors() }
     }
 
-    // Pause/resume on lifecycle
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -214,7 +207,7 @@ fun StepMissionScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BlackMute)
+            .background(Charcoal)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -222,7 +215,7 @@ fun StepMissionScreen(
         Text(
             text = "Take Steps!",
             style = MaterialTheme.typography.headlineLarge,
-            color = OrangeAccent,
+            color = Terracotta,
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { contentDescription = "Take Steps mission" }
         )
@@ -232,22 +225,28 @@ fun StepMissionScreen(
         Text(
             text = "Walk around to register steps",
             style = MaterialTheme.typography.bodyLarge,
-            color = androidx.compose.ui.graphics.Color.Gray,
+            color = TextSecondary,
             textAlign = TextAlign.Center
         )
 
         if (sensorError) {
             Spacer(modifier = Modifier.height(16.dp))
             Card(
-                colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF4A1010))
+                colors = CardDefaults.cardColors(containerColor = DustyRose.copy(alpha = 0.2f))
             ) {
-                Text(
-                    text = "⚠️ Step sensor unavailable on this device.\nPlease switch to a different alarm mission.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = androidx.compose.ui.graphics.Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(16.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = DustyRose)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Step sensor unavailable on this device.\nPlease switch to a different alarm mission.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
 
@@ -258,38 +257,47 @@ fun StepMissionScreen(
             modifier = Modifier
                 .size(200.dp)
                 .clip(CircleShape)
-                .background(androidx.compose.ui.graphics.Color.DarkGray)
+                .background(WarmBrown)
                 .semantics { contentDescription = "Steps taken: $currentSteps of $targetSteps" },
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "$currentSteps",
-                    style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.Bold, color = OrangeAccent)
+                    style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.Bold, color = Terracotta)
                 )
                 Text(
                     text = "/ $targetSteps",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = androidx.compose.ui.graphics.Color.White
+                    color = TextPrimary
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Text(
-            text = if (usingHardwareCounter) "📡 Hardware step counter active" else "📱 Accelerometer detection active",
-            style = MaterialTheme.typography.bodyMedium,
-            color = androidx.compose.ui.graphics.Color.Gray,
-            textAlign = TextAlign.Center
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = if (usingHardwareCounter) Icons.Default.Sensors else Icons.Default.PhoneAndroid,
+                contentDescription = null,
+                tint = TextTertiary,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = if (usingHardwareCounter) "Hardware step counter active" else "Accelerometer detection active",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextTertiary,
+                textAlign = TextAlign.Center
+            )
+        }
 
         if (!usingHardwareCounter && !sensorError) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Accel: ${"%.2f".format(debugAcceleration)} | Avg(${WINDOW_SIZE}): ${"%.2f".format(debugWindowAvg)} | Thresh: $STEP_THRESHOLD",
+                text = "Accel: ${"%.2f".format(debugAcceleration)} | Avg($WINDOW_SIZE): ${"%.2f".format(debugWindowAvg)} | Thresh: $STEP_THRESHOLD",
                 style = MaterialTheme.typography.labelSmall,
-                color = androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.6f),
+                color = TextTertiary,
                 textAlign = TextAlign.Center
             )
         }
@@ -302,8 +310,8 @@ fun StepMissionScreen(
                 .fillMaxWidth()
                 .height(12.dp)
                 .clip(RoundedCornerShape(6.dp)),
-            color = OrangeAccent,
-            trackColor = androidx.compose.ui.graphics.Color.DarkGray
+            color = Terracotta,
+            trackColor = WarmBrown
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -311,7 +319,7 @@ fun StepMissionScreen(
         Text(
             text = "Keep your phone in your pocket or hand and walk naturally",
             style = MaterialTheme.typography.bodyMedium,
-            color = androidx.compose.ui.graphics.Color.LightGray,
+            color = TextSecondary,
             textAlign = TextAlign.Center
         )
     }

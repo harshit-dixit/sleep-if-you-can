@@ -92,7 +92,7 @@ sealed class AlarmEvent {
 @Parcelize
 data class Card(
     val id: Int,
-    val symbol: String, // Emoji
+    val symbol: String, // Icon key (mapped to Material Icons in UI)
     val isFlipped: Boolean = false,
     val isMatched: Boolean = false
 ) : Parcelable
@@ -373,10 +373,10 @@ class AlarmRingingViewModel(
         val totalCards = gridSize * gridSize
         val pairCount = totalCards / 2
         val symbols = listOf(
-             "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼",
-             "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔",
-             "🐧", "🐦", "🦅", "🐺", "🐗", "🐴", "🦄", "🐝",
-             "🐛", "🦋", "🐌", "🐞", "🐜", "🦟", "🦗", "🕷"
+             "star", "moon", "cloud", "heart", "diamond", "flower", "leaf", "sun",
+             "bolt", "drop", "flame", "snowflake", "music", "bell", "eye", "key",
+             "anchor", "crown", "shield", "compass", "feather", "gem", "lamp", "ring",
+             "globe", "tree", "wave", "mountain", "butterfly", "fish", "bird", "shell"
         ).shuffled().take(pairCount)
         
         val deck = (symbols + symbols).shuffled().mapIndexed { index, symbol ->

@@ -12,50 +12,50 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Enhanced dark color scheme with modern colors
+// Warm sketch-inspired dark color scheme
 private val SleepDarkColorScheme = darkColorScheme(
-    primary = Coral,
-    onPrimary = TextPrimary,
-    primaryContainer = NavyLight,
+    primary = Terracotta,
+    onPrimary = TextOnAccent,
+    primaryContainer = Color(0xFF453A33),
     onPrimaryContainer = TextPrimary,
 
-    secondary = Lavender,
-    onSecondary = TextPrimary,
-    secondaryContainer = DarkBlue,
+    secondary = DustyBlue,
+    onSecondary = TextOnAccent,
+    secondaryContainer = Espresso,
     onSecondaryContainer = TextPrimary,
 
-    tertiary = Mint,
-    onTertiary = TextPrimary,
-    tertiaryContainer = OceanBlue,
+    tertiary = Sage,
+    onTertiary = TextOnAccent,
+    tertiaryContainer = WarmBrown,
     onTertiaryContainer = TextPrimary,
 
     error = Error,
-    onError = TextPrimary,
-    errorContainer = Color(0xFF2D1B1B),
+    onError = TextOnAccent,
+    errorContainer = Color(0xFF3D2222),
     onErrorContainer = Error,
 
-    background = DeepNavy,
+    background = Charcoal,
     onBackground = TextPrimary,
 
-    surface = DarkBlue,
+    surface = Espresso,
     onSurface = TextPrimary,
-    surfaceVariant = NavyLight,
+    surfaceVariant = Color(0xFF453A33),
     onSurfaceVariant = TextSecondary,
 
-    surfaceTint = Coral,
+    surfaceTint = Terracotta,
 
     outline = TextTertiary,
     outlineVariant = TextDisabled,
 
     inverseSurface = TextPrimary,
-    inverseOnSurface = DeepNavy,
-    inversePrimary = Coral,
+    inverseOnSurface = Charcoal,
+    inversePrimary = Terracotta,
 
-    surfaceContainer = OceanBlue,
-    surfaceContainerHigh = NavyLight,
-    surfaceContainerHighest = BlueLight,
-    surfaceContainerLow = DarkBlue,
-    surfaceContainerLowest = Midnight,
+    surfaceContainer = WarmBrown,
+    surfaceContainerHigh = Color(0xFF453A33),
+    surfaceContainerHighest = Color(0xFF5A4E44),
+    surfaceContainerLow = Espresso,
+    surfaceContainerLowest = WarmBlack,
 
     scrim = Color(0xFF000000)
 )
@@ -72,8 +72,8 @@ fun SleepIfYouCanTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = BlackMuteDark.toArgb()
-            window.navigationBarColor = BlackMuteDark.toArgb()
+            window.statusBarColor = WarmBlack.toArgb()
+            window.navigationBarColor = WarmBlack.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
         }

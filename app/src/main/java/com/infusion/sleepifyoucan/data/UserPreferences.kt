@@ -164,7 +164,7 @@ fun MissionAudioBehavior.description(): String = when (this) {
 fun EscapePreventionMode.displayName(): String = when (this) {
     EscapePreventionMode.OFF -> "Off"
     EscapePreventionMode.BALANCED -> "Balanced"
-    EscapePreventionMode.EVIL -> "Evil Mode 😈"
+    EscapePreventionMode.EVIL -> "Evil Mode"
 }
 
 fun EscapePreventionMode.description(): String = when (this) {

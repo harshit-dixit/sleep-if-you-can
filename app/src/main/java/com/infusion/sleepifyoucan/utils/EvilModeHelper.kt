@@ -50,7 +50,7 @@ object EvilModeHelper {
      */
     fun getPermissionExplanation(): String {
         return """
-🔒 EVIL MODE
+EVIL MODE
 
 This mode makes it IMPOSSIBLE to escape the alarm until you complete the mission.
 

@@ -9,12 +9,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.Font
 import com.infusion.sleepifyoucan.R
 
-// Using Manrope font family
+// Using Manrope font family — rounded, modern, readable
 val ManropeFamily = FontFamily(
     Font(R.font.manrope_family)
 )
 
-// App Typography - designed for alarm clock readability
+// App Typography - designed for alarm clock readability with a warm, relaxed feel
 val AppTypography = Typography(
     // Large display for alarm times (07:30)
     displayLarge = TextStyle(
@@ -22,7 +22,7 @@ val AppTypography = Typography(
         fontWeight = FontWeight.ExtraBold,
         fontSize = 72.sp,
         lineHeight = 80.sp,
-        letterSpacing = (-2).sp
+        letterSpacing = (-1.5).sp
     ),
     // Medium display for streak counts
     displayMedium = TextStyle(
@@ -30,7 +30,7 @@ val AppTypography = Typography(
         fontWeight = FontWeight.Bold,
         fontSize = 56.sp,
         lineHeight = 64.sp,
-        letterSpacing = (-1).sp
+        letterSpacing = (-0.5).sp
     ),
     // Small display for secondary time info
     displaySmall = TextStyle(
@@ -84,27 +84,27 @@ val AppTypography = Typography(
         lineHeight = 20.sp,
         letterSpacing = 0.1.sp
     ),
-    // Body text
+    // Body text — slightly more relaxed spacing for warm feel
     bodyLarge = TextStyle(
         fontFamily = ManropeFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
+        lineHeight = 26.sp,
+        letterSpacing = 0.3.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = ManropeFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.25.sp
+        lineHeight = 22.sp,
+        letterSpacing = 0.2.sp
     ),
     bodySmall = TextStyle(
         fontFamily = ManropeFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.4.sp
+        lineHeight = 18.sp,
+        letterSpacing = 0.3.sp
     ),
     // Labels
     labelLarge = TextStyle(
@@ -119,13 +119,13 @@ val AppTypography = Typography(
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
+        letterSpacing = 0.4.sp
     ),
     labelSmall = TextStyle(
         fontFamily = ManropeFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
+        letterSpacing = 0.4.sp
     )
 )

@@ -84,7 +84,7 @@ class AlarmActivity : ComponentActivity() {
             SleepIfYouCanTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = BlackMute
+                    color = Charcoal
                 ) {
                     val missionState by viewModel.missionState.collectAsState()
                     val snoozeCount by viewModel.snoozeCount.collectAsState()
@@ -250,7 +250,7 @@ fun AlarmRingingScreenHost(
         }
         MissionState.Completed -> {
             // Handled by LaunchedEffect in Activity
-            Box(Modifier.fillMaxSize().background(BlackMute))
+            Box(Modifier.fillMaxSize().background(Charcoal))
         }
     }
 }
@@ -266,7 +266,7 @@ fun InitialAlarmScreen(
      Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BlackMute)
+                .background(GradientPrimary)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
@@ -299,7 +299,8 @@ fun InitialAlarmScreen(
                         .fillMaxWidth()
                         .height(64.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangeJuice
+                        containerColor = Terracotta,
+                        contentColor = TextOnAccent
                     ),
                     shape = RoundedCornerShape(16.dp)
                 ) {

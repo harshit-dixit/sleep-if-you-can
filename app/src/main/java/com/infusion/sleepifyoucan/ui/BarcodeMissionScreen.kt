@@ -6,6 +6,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,8 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
-import com.infusion.sleepifyoucan.ui.theme.BlackMute
-import com.infusion.sleepifyoucan.ui.theme.Coral
+import com.infusion.sleepifyoucan.ui.theme.*
 
 @Composable
 fun BarcodeMissionScreen(
@@ -41,6 +42,7 @@ fun BarcodeMissionScreen(
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
             scanResult = result.contents
+            onBarcodeScanned(result.contents!!)
         }
     }
     
@@ -157,10 +159,10 @@ fun BarcodeMissionScreen(
                 ),
                 modifier = Modifier.size(120.dp)
             ) {
-                Text(
-                    text = "📱\nScan",
-                    style = MaterialTheme.typography.headlineSmall,
-                    textAlign = TextAlign.Center
+                Icon(
+                    imageVector = Icons.Default.QrCodeScanner,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp)
                 )
             }
             
@@ -171,7 +173,7 @@ fun BarcodeMissionScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = androidx.compose.ui.graphics.Color.DarkGray
+                        containerColor = SketchCardBg
                     )
                 ) {
                     Column(

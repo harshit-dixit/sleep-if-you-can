@@ -12,6 +12,8 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,16 +25,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.infusion.sleepifyoucan.ui.theme.BlackMute
-import com.infusion.sleepifyoucan.ui.theme.Coral
-import com.infusion.sleepifyoucan.ui.theme.OrangeAccent
+import com.infusion.sleepifyoucan.ui.theme.*
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.concurrent.Executors
 
 @Composable
 fun PhotoMissionScreen(
@@ -77,7 +76,7 @@ fun PhotoMissionScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BlackMute)
+                .background(Charcoal)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -85,7 +84,7 @@ fun PhotoMissionScreen(
             Text(
                 text = "Camera Permission Required",
                 style = MaterialTheme.typography.headlineMedium,
-                color = OrangeAccent,
+                color = Terracotta,
                 textAlign = TextAlign.Center
             )
             
@@ -94,7 +93,7 @@ fun PhotoMissionScreen(
             Text(
                 text = "We need camera access to verify your photo mission",
                 style = MaterialTheme.typography.bodyLarge,
-                color = androidx.compose.ui.graphics.Color.Gray,
+                color = TextSecondary,
                 textAlign = TextAlign.Center
             )
             
@@ -103,8 +102,8 @@ fun PhotoMissionScreen(
             Button(
                 onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = OrangeAccent,
-                    contentColor = androidx.compose.ui.graphics.Color.Black
+                    containerColor = Terracotta,
+                    contentColor = TextOnAccent
                 )
             ) {
                 Text("Grant Camera Permission")
@@ -114,20 +113,20 @@ fun PhotoMissionScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BlackMute),
+                .background(Charcoal),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            CircularProgressIndicator(color = OrangeAccent)
+            CircularProgressIndicator(color = Terracotta)
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Analyzing Photo...", color = OrangeAccent)
+            Text("Analyzing Photo...", color = Terracotta)
         }
     } else if (feedbackMessage != null) {
         // Verification Failed Screen
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BlackMute)
+                .background(Charcoal)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -135,7 +134,7 @@ fun PhotoMissionScreen(
             Text(
                 text = "Try Again!",
                 style = MaterialTheme.typography.headlineLarge,
-                color = androidx.compose.ui.graphics.Color.Red,
+                color = DustyRose,
                 textAlign = TextAlign.Center
             )
             
@@ -144,7 +143,7 @@ fun PhotoMissionScreen(
             Text(
                 text = feedbackMessage ?: "",
                 style = MaterialTheme.typography.bodyLarge,
-                color = androidx.compose.ui.graphics.Color.White,
+                color = TextPrimary,
                 textAlign = TextAlign.Center
             )
             
@@ -156,8 +155,8 @@ fun PhotoMissionScreen(
                     showCamera = true 
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = OrangeAccent,
-                    contentColor = androidx.compose.ui.graphics.Color.Black
+                    containerColor = Terracotta,
+                    contentColor = TextOnAccent
                 )
             ) {
                 Text("Retake Photo")
@@ -168,7 +167,7 @@ fun PhotoMissionScreen(
             Text(
                 text = "Required: $requiredObject",
                 style = MaterialTheme.typography.bodyMedium,
-                color = androidx.compose.ui.graphics.Color.Gray
+                color = TextSecondary
             )
         }
     } else {
@@ -223,9 +222,6 @@ private fun verifyImage(
                 label.text.contains(requiredObject, ignoreCase = true) || 
                 requiredObject.contains(label.text, ignoreCase = true)
             }
-            
-            // Logging found labels for debugging (optional)
-            // labels.forEach { Log.d("MLKit", "${it.text} : ${it.confidence}") }
             
             onResult(isMatch, topLabel)
         }
@@ -290,18 +286,18 @@ private fun CameraView(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 48.dp)
-                .background(BlackMute.copy(alpha = 0.6f), CircleShape)
+                .background(WarmBlack.copy(alpha = 0.6f), CircleShape)
                 .padding(horizontal = 24.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "Take a photo of:",
-                color = androidx.compose.ui.graphics.Color.White,
+                color = TextPrimary,
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
                 text = requiredObject,
-                color = OrangeAccent,
+                color = Terracotta,
                 style = MaterialTheme.typography.headlineSmall
             )
         }
@@ -322,11 +318,15 @@ private fun CameraView(
                 .size(80.dp)
                 .clip(CircleShape),
             colors = ButtonDefaults.buttonColors(
-                containerColor = OrangeAccent,
-                contentColor = androidx.compose.ui.graphics.Color.Black
+                containerColor = Terracotta,
+                contentColor = TextOnAccent
             )
         ) {
-            Text("📸", style = MaterialTheme.typography.headlineMedium)
+            Icon(
+                imageVector = Icons.Default.CameraAlt,
+                contentDescription = "Capture Photo",
+                modifier = Modifier.size(36.dp)
+            )
         }
     }
 }
@@ -356,10 +356,4 @@ private fun takePhoto(
             }
         }
     )
-}
-
-private fun createOutputFile(context: Context): File {
-    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-    val storageDir = context.cacheDir
-    return File(storageDir, "IMG_$timeStamp.jpg")
 }

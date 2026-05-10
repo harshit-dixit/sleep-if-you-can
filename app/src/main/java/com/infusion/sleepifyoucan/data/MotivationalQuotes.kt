@@ -73,14 +73,14 @@ object MotivationalQuotes {
         "Your body is a temple, but only if you treat it as one.",
         
         // Short & Punchy
-        "Rise and grind. ☀️",
+        "Rise and grind.",
         "Today is your day!",
         "Wake up and be awesome.",
         "Make today count.",
         "New day, new possibilities.",
         "Champions wake up early.",
-        "You've got this! 💪",
-        "Early bird catches the worm. 🐛",
+        "You've got this!",
+        "Early bird catches the worm.",
         "Mornings are for winners.",
         "Let's crush today!"
     )

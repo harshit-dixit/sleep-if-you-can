@@ -54,7 +54,7 @@ fun TypingMissionScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BlackMute)
+            .background(Charcoal)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -62,7 +62,7 @@ fun TypingMissionScreen(
         Text(
             text = "Type the word:",
             style = MaterialTheme.typography.headlineMedium,
-            color = OrangeAccent,
+            color = Terracotta,
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { contentDescription = "Type the word mission" }
         )
@@ -72,7 +72,7 @@ fun TypingMissionScreen(
         // Display target word (always shown uppercase when not case-sensitive for clarity)
         Text(
             text = if (caseSensitive) targetWord else targetWord.uppercase(),
-            style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color.White),
+            style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.Bold, color = TextPrimary),
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { contentDescription = "Target word: ${if (caseSensitive) targetWord else targetWord.uppercase()}" }
         )
@@ -101,11 +101,11 @@ fun TypingMissionScreen(
             ),
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = OrangeAccent,
-                unfocusedBorderColor = androidx.compose.ui.graphics.Color.Gray,
-                focusedTextColor = androidx.compose.ui.graphics.Color.White,
-                unfocusedTextColor = androidx.compose.ui.graphics.Color.White,
-                cursorColor = OrangeAccent
+                focusedBorderColor = Terracotta,
+                unfocusedBorderColor = TextTertiary,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary,
+                cursorColor = Terracotta
             )
         )
 
@@ -115,7 +115,7 @@ fun TypingMissionScreen(
             Text(
                 text = "Case insensitive — typing in UPPERCASE works",
                 style = MaterialTheme.typography.bodyMedium,
-                color = androidx.compose.ui.graphics.Color.Gray,
+                color = TextTertiary,
                 textAlign = TextAlign.Center
             )
         }
@@ -135,8 +135,8 @@ fun TypingMissionScreen(
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .semantics { contentDescription = "Typing progress: ${(progress * 100).toInt()} percent" },
-            color = OrangeAccent,
-            trackColor = androidx.compose.ui.graphics.Color.DarkGray
+            color = Terracotta,
+            trackColor = WarmBrown
         )
     }
 }

@@ -57,7 +57,7 @@ fun PulseAnimation(
     }
 }
 
-// Shimmer effect for loading states
+// Shimmer effect for loading states — warm tones
 @Composable
 fun ShimmerBox(
     modifier: Modifier = Modifier,
@@ -75,9 +75,9 @@ fun ShimmerBox(
 
     val shimmerBrush = Brush.linearGradient(
         colors = listOf(
-            Color(0xFF2A2A4E),
-            Color(0xFF3A3A5E),
-            Color(0xFF2A2A4E)
+            Color(0xFF3A302A),
+            Color(0xFF4A3E36),
+            Color(0xFF3A302A)
         ),
         start = androidx.compose.ui.geometry.Offset(shimmerOffset * 1000, 0f),
         end = androidx.compose.ui.geometry.Offset(shimmerOffset * 1000 + 500, 0f)
@@ -135,11 +135,11 @@ fun ScaleFadeAnimation(
     }
 }
 
-// Rotating loading indicator
+// Rotating loading indicator — warm terracotta
 @Composable
 fun RotatingLoader(
     size: androidx.compose.ui.unit.Dp = 48.dp,
-    color: Color = Coral
+    color: Color = Terracotta
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "rotation")
     val rotation by infiniteTransition.animateFloat(

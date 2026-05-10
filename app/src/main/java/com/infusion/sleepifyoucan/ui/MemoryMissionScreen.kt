@@ -8,23 +8,62 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.infusion.sleepifyoucan.ui.theme.*
 import kotlin.math.sqrt
+
+// Maps card symbol keys to Material Icons
+private fun symbolToIcon(symbol: String): ImageVector = when (symbol) {
+    "star" -> Icons.Default.Star
+    "moon" -> Icons.Default.NightsStay
+    "cloud" -> Icons.Default.Cloud
+    "heart" -> Icons.Default.Favorite
+    "diamond" -> Icons.Default.Diamond
+    "flower" -> Icons.Default.LocalFlorist
+    "leaf" -> Icons.Default.Eco
+    "sun" -> Icons.Default.WbSunny
+    "bolt" -> Icons.Default.Bolt
+    "drop" -> Icons.Default.WaterDrop
+    "flame" -> Icons.Default.Whatshot
+    "snowflake" -> Icons.Default.AcUnit
+    "music" -> Icons.Default.MusicNote
+    "bell" -> Icons.Default.Notifications
+    "eye" -> Icons.Default.Visibility
+    "key" -> Icons.Default.Key
+    "anchor" -> Icons.Default.Anchor
+    "crown" -> Icons.Default.WorkspacePremium
+    "shield" -> Icons.Default.Shield
+    "compass" -> Icons.Default.Explore
+    "feather" -> Icons.Default.Create
+    "gem" -> Icons.Default.Diamond
+    "lamp" -> Icons.Default.Lightbulb
+    "ring" -> Icons.Default.Circle
+    "globe" -> Icons.Default.Public
+    "tree" -> Icons.Default.Park
+    "wave" -> Icons.Default.Waves
+    "mountain" -> Icons.Default.Terrain
+    "butterfly" -> Icons.Default.EmojiNature
+    "fish" -> Icons.Default.SetMeal
+    "bird" -> Icons.Default.Flutter
+    "shell" -> Icons.Default.Spa
+    else -> Icons.Default.HelpOutline
+}
 
 @Composable
 fun MemoryMissionScreen(
@@ -32,7 +71,7 @@ fun MemoryMissionScreen(
     onCardClick: (Int) -> Unit
 ) {
     val view = LocalView.current
-    var flashColor by remember { mutableStateOf(Color.Transparent) }
+    var flashColor by remember { mutableStateOf(Clear) }
     var previousMatchedPairs by remember { mutableIntStateOf(state.matchedPairs) }
     
     // Flash green on match
@@ -40,9 +79,9 @@ fun MemoryMissionScreen(
         if (state.matchedPairs > previousMatchedPairs) {
             // Match found!
             view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-            flashColor = GreenLand.copy(alpha = 0.3f)
+            flashColor = Sage.copy(alpha = 0.3f)
             kotlinx.coroutines.delay(300)
-            flashColor = Color.Transparent
+            flashColor = Clear
         }
         previousMatchedPairs = state.matchedPairs
     }
@@ -58,7 +97,7 @@ fun MemoryMissionScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BlackMute)
+                .background(Charcoal)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -68,7 +107,7 @@ fun MemoryMissionScreen(
             text = "MEMORY MATCH",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
-            color = PurpleNight
+            color = Terracotta
         )
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -139,27 +178,29 @@ fun MemoryCardItem(
             Card(
                 modifier = Modifier.fillMaxSize(),
                 shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = PurpleNight)
+                colors = CardDefaults.cardColors(containerColor = WarmBrown)
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("?", color = Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+                    Text("?", color = TextTertiary, fontWeight = FontWeight.Bold)
                 }
             }
         } else {
-            // Front of card
+            // Front of card — show Material Icon
             Card(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer { rotationY = 180f }, // Correct content orientation
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (card.isMatched) GreenLand else Color.White
+                    containerColor = if (card.isMatched) Sage else Parchment
                 )
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = card.symbol,
-                        fontSize = 32.sp
+                    Icon(
+                        imageVector = symbolToIcon(card.symbol),
+                        contentDescription = card.symbol,
+                        tint = if (card.isMatched) TextOnAccent else TextOnCard,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }

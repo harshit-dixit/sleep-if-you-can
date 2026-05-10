@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,8 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.infusion.sleepifyoucan.ui.theme.BlackMute
-import com.infusion.sleepifyoucan.ui.theme.OrangeAccent
+import com.infusion.sleepifyoucan.ui.theme.*
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -64,11 +65,6 @@ fun SquatMissionScreen(
                     val linearAcceleration = abs(magnitude - SensorManager.GRAVITY_EARTH)
                     acceleration = linearAcceleration
 
-                    // State machine:
-                    // WAITING -> detect quick downward movement start
-                    // GOING_DOWN -> waiting for deceleration (bottom of squat)
-                    // BOTTOM -> waiting for upward push
-                    // GOING_UP -> detect return to rest = squat complete
                     when (squatPhase) {
                         SquatPhase.WAITING -> {
                             if (linearAcceleration > 2.5f) {
@@ -87,7 +83,6 @@ fun SquatMissionScreen(
                         }
                         SquatPhase.GOING_UP -> {
                             if (linearAcceleration < 1.2f) {
-                                // Completed a squat!
                                 onSquatDetected()
                                 squatPhase = SquatPhase.WAITING
                             }
@@ -137,7 +132,7 @@ fun SquatMissionScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BlackMute)
+            .background(Charcoal)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -145,7 +140,7 @@ fun SquatMissionScreen(
         Text(
             text = "Do Squats!",
             style = MaterialTheme.typography.headlineLarge,
-            color = OrangeAccent,
+            color = Terracotta,
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { contentDescription = "Do Squats mission" }
         )
@@ -155,22 +150,28 @@ fun SquatMissionScreen(
         Text(
             text = "Hold your phone in your hand and perform squats",
             style = MaterialTheme.typography.bodyLarge,
-            color = androidx.compose.ui.graphics.Color.Gray,
+            color = TextSecondary,
             textAlign = TextAlign.Center
         )
 
         if (sensorError) {
             Spacer(modifier = Modifier.height(16.dp))
             Card(
-                colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF4A1010))
+                colors = CardDefaults.cardColors(containerColor = DustyRose.copy(alpha = 0.2f))
             ) {
-                Text(
-                    text = "⚠️ Accelerometer unavailable.\nPlease switch to a different alarm mission.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = androidx.compose.ui.graphics.Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(16.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = DustyRose)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Accelerometer unavailable.\nPlease switch to a different alarm mission.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
 
@@ -180,19 +181,19 @@ fun SquatMissionScreen(
             modifier = Modifier
                 .size(200.dp)
                 .clip(CircleShape)
-                .background(androidx.compose.ui.graphics.Color.DarkGray)
+                .background(WarmBrown)
                 .semantics { contentDescription = "Squats done: $currentSquats of $targetSquats" },
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "$currentSquats",
-                    style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.Bold, color = OrangeAccent)
+                    style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.Bold, color = Terracotta)
                 )
                 Text(
                     text = "/ $targetSquats",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = androidx.compose.ui.graphics.Color.White
+                    color = TextPrimary
                 )
             }
         }
@@ -200,16 +201,16 @@ fun SquatMissionScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         val phaseText = when (squatPhase) {
-            SquatPhase.WAITING -> "⏸ Ready — start your squat"
-            SquatPhase.GOING_DOWN -> "⬇ Going down…"
-            SquatPhase.BOTTOM -> "⬆ Push up!"
-            SquatPhase.GOING_UP -> "↑ Coming up…"
+            SquatPhase.WAITING -> "Ready — start your squat"
+            SquatPhase.GOING_DOWN -> "Going down..."
+            SquatPhase.BOTTOM -> "Push up!"
+            SquatPhase.GOING_UP -> "Coming up..."
         }
 
         Text(
             text = phaseText,
             style = MaterialTheme.typography.headlineSmall,
-            color = androidx.compose.ui.graphics.Color.White,
+            color = TextPrimary,
             textAlign = TextAlign.Center
         )
 
@@ -218,7 +219,7 @@ fun SquatMissionScreen(
         Text(
             text = "Accel: ${"%.2f".format(acceleration)}",
             style = MaterialTheme.typography.labelSmall,
-            color = androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.6f)
+            color = TextTertiary
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -229,8 +230,8 @@ fun SquatMissionScreen(
                 .fillMaxWidth()
                 .height(12.dp)
                 .clip(RoundedCornerShape(6.dp)),
-            color = OrangeAccent,
-            trackColor = androidx.compose.ui.graphics.Color.DarkGray
+            color = Terracotta,
+            trackColor = WarmBrown
         )
     }
 }

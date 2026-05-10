@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import android.os.Parcelable
@@ -17,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color.Companion.Clear
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -49,7 +53,7 @@ fun MathMissionScreen(
     var showSuccess by remember { mutableStateOf(false) }
     
     // Screen flash color state
-    var flashColor by remember { mutableStateOf(Color.Transparent) }
+    var flashColor by remember { mutableStateOf(Clear) }
     
     // Shake animation
     val shakeOffset = remember { Animatable(0f) }
@@ -60,7 +64,7 @@ fun MathMissionScreen(
     LaunchedEffect(isError) {
         if (isError) {
             view.performHapticFeedback(android.view.HapticFeedbackConstants.REJECT)
-            flashColor = OrangeJuice.copy(alpha = 0.4f)
+            flashColor = DustyRose.copy(alpha = 0.4f)
             shakeOffset.animateTo(
                 targetValue = 0f,
                 animationSpec = keyframes {
@@ -74,7 +78,7 @@ fun MathMissionScreen(
                     0f at 400
                 }
             )
-            flashColor = Color.Transparent
+            flashColor = Clear
         }
     }
     
@@ -82,17 +86,17 @@ fun MathMissionScreen(
     LaunchedEffect(showSuccess) {
         if (showSuccess) {
             view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-            flashColor = GreenLand.copy(alpha = 0.4f)
+            flashColor = Sage.copy(alpha = 0.4f)
             kotlinx.coroutines.delay(300)
-            flashColor = Color.Transparent
+            flashColor = Clear
         }
     }
     
     val inputBackgroundColor by animateColorAsState(
         targetValue = when {
-            showSuccess -> GreenLand.copy(alpha = 0.3f)
-            isError -> OrangeJuice.copy(alpha = 0.3f)
-            else -> BlackMuteSurface
+            showSuccess -> Sage.copy(alpha = 0.3f)
+            isError -> DustyRose.copy(alpha = 0.3f)
+            else -> Espresso
         },
         label = "InputBg"
     )
@@ -130,7 +134,7 @@ fun MathMissionScreen(
                 text = currentProblem.display,
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Bold,
-                color = PurpleNight,
+                color = Terracotta,
                 modifier = Modifier.semantics { contentDescription = "Math problem: ${currentProblem.display}" }
             )
             
@@ -228,18 +232,26 @@ fun NumericKeypad(
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = when (key) {
-                        "OK" -> GreenLand
-                        "DEL" -> OrangeJuice.copy(alpha = 0.7f)
-                        else -> BlackMuteSurface
+                        "OK" -> Sage
+                        "DEL" -> DustyRose.copy(alpha = 0.7f)
+                        else -> Espresso
                     },
                     contentColor = TextPrimary
                 )
             ) {
-                Text(
-                    text = if (key == "DEL") "⌫" else key,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                if (key == "DEL") {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Backspace,
+                        contentDescription = "Delete",
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text(
+                        text = key,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

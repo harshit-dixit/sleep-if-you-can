@@ -61,7 +61,7 @@ fun ShakeMissionScreen(
                 Text(
                     text = "Shake to Dismiss!",
                     style = MaterialTheme.typography.headlineLarge,
-                    color = Coral,
+                    color = Terracotta,
                     textAlign = TextAlign.Center,
                     fontWeight = FontWeight.Bold
                 )
@@ -119,7 +119,7 @@ fun ShakeMissionScreen(
                     Text(
                         text = "SHAKE DETECTED!",
                         style = MaterialTheme.typography.headlineSmall,
-                        color = Mint,
+                        color = Sage,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -140,23 +140,23 @@ fun ShakeMissionScreen(
                     .fillMaxWidth()
                     .height(12.dp)
                     .clip(RoundedCornerShape(6.dp)),
-                color = Coral,
-                trackColor = OceanBlue,
+                color = Terracotta,
+                trackColor = WarmBrown,
                 drawStopIndicator = {}
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Motivational text
+            // Motivational text — no emojis
             Text(
                 text = when {
-                    currentShakes == 0 -> "Let's get moving! 🎯"
-                    currentShakes < targetShakes / 2 -> "You're doing great! 💪"
-                    currentShakes < targetShakes -> "Almost there! 🔥"
-                    else -> "Amazing work! ⭐"
+                    currentShakes == 0 -> "Let's get moving!"
+                    currentShakes < targetShakes / 2 -> "You're doing great!"
+                    currentShakes < targetShakes -> "Almost there!"
+                    else -> "Amazing work!"
                 },
                 style = MaterialTheme.typography.bodyLarge,
-                color = Gold,
+                color = Amber,
                 textAlign = TextAlign.Center
             )
         }

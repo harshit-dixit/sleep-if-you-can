@@ -63,22 +63,16 @@ class MainActivity : ComponentActivity() {
                                 .putBoolean("onboarding_completed", true)
                                 .apply()
                             showOnboarding = false
-                        },
-                        onSkip = {
-                            getSharedPreferences("app_prefs", MODE_PRIVATE)
-                                .edit()
-                                .putBoolean("onboarding_completed", true)
-                                .apply()
-                            showOnboarding = false
                         }
                     )
                 } else {
                     val navController = rememberNavController()
+                    val snackbarHostState = remember { SnackbarHostState() }
                     val viewModel: AlarmViewModel = viewModel(factory = AlarmViewModel.Factory(alarmRepository))
                     val settingsViewModel: SettingsViewModel = viewModel()
 
                     // Track current selected tab — default to ALARMS
-                    var selectedTab by remember { mutableStateOf(NavigationTab.ALARMS) }
+                    var selectedTab by remember { mutableStateOf<NavDestination>(NavDestination.ALARMS) }
 
                     // Track if we're on add/edit route
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -104,13 +98,14 @@ class MainActivity : ComponentActivity() {
                     }
 
                     Scaffold(
-                        containerColor = DeepNavy,
+                        containerColor = Charcoal,
+                        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                         bottomBar = {
                             // Hide bottom nav on add/edit screen
                             if (!isOnAddEdit) {
-                                AppBottomNavigation(
-                                    selectedTab = selectedTab,
-                                    onTabSelected = { tab ->
+                                BottomNavigationBar(
+                                    currentDestination = selectedTab,
+                                    onNavigate = { tab ->
                                         selectedTab = tab
                                         // Navigate back to main if on a sub-route
                                         if (currentRoute != "main") {
@@ -122,14 +117,14 @@ class MainActivity : ComponentActivity() {
                         },
                         floatingActionButton = {
                             // Show FAB only on ALARMS tab and not on add/edit screen
-                            if (selectedTab == NavigationTab.ALARMS && !isOnAddEdit) {
+                            if (selectedTab == NavDestination.ALARMS && !isOnAddEdit) {
                                 FloatingActionButton(
                                     onClick = {
                                         if (checkExactAlarmPermission(this@MainActivity)) {
                                             navController.navigate("add_edit")
                                         }
                                     },
-                                    containerColor = Coral,
+                                    containerColor = Terracotta,
                                     contentColor = TextOnAccent,
                                     shape = RoundedCornerShape(16.dp)
                                 ) {
@@ -145,7 +140,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             composable("main") {
                                 when (selectedTab) {
-                                    NavigationTab.ALARMS -> {
+                                    NavDestination.ALARMS -> {
                                         AlarmListScreen(
                                             viewModel = viewModel,
                                             onAlarmClick = { alarm ->
@@ -153,14 +148,14 @@ class MainActivity : ComponentActivity() {
                                             }
                                         )
                                     }
-                                    NavigationTab.STREAK -> {
+                                    NavDestination.STREAK -> {
                                         StreakScreen(
                                             currentStreak = currentStreak,
                                             weeklyProgress = weeklyProgress,
                                             motivationalMessage = motivationalMessage
                                         )
                                     }
-                                    NavigationTab.SETTINGS -> {
+                                    NavDestination.SETTINGS -> {
                                         val preferences by settingsViewModel.preferences.collectAsState()
 
                                         SettingsScreen(
@@ -193,6 +188,17 @@ class MainActivity : ComponentActivity() {
                                             viewModel.insert(alarm)
                                         }
                                         navController.popBackStack()
+                                        
+                                        val formattedTime = String.format("%d:%02d %s", if (alarm.hour % 12 == 0) 12 else alarm.hour % 12, alarm.minute, if (alarm.hour < 12) "AM" else "PM")
+                                        val timeUntil = com.infusion.sleepifyoucan.utils.getTimeUntilAlarm(alarm.hour, alarm.minute, alarm.daysOfWeek)
+                                        
+                                        // Show snackbar confirmation
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                message = "Alarm set for $formattedTime — $timeUntil",
+                                                duration = SnackbarDuration.Short
+                                            )
+                                        }
                                     },
                                     onCancel = {
                                         navController.popBackStack()
@@ -221,7 +227,7 @@ fun AlarmListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DeepNavy)
+            .background(Charcoal)
             .padding(horizontal = 16.dp)
     ) {
         // Header
@@ -247,9 +253,11 @@ fun AlarmListScreen(
                             .fillMaxWidth()
                             .padding(32.dp)
                     ) {
-                        Text(
-                            text = "⏰",
-                            style = MaterialTheme.typography.displaySmall
+                        Icon(
+                            imageVector = Icons.Default.AccessAlarm,
+                            contentDescription = "No alarms",
+                            modifier = Modifier.size(64.dp),
+                            tint = Terracotta.copy(alpha = 0.5f)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
@@ -263,6 +271,13 @@ fun AlarmListScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary
                         )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = { /* Will be handled by FAB anyway, or could pass navController */ },
+                            colors = ButtonDefaults.buttonColors(containerColor = Terracotta)
+                        ) {
+                            Text("Create Alarm", color = TextOnAccent)
+                        }
                     }
                 }
             }
@@ -287,6 +302,7 @@ fun AlarmListScreen(
 /**
  * Alarm Item Card with glassmorphism styling.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmItemCard(
     alarm: Alarm,
@@ -294,63 +310,175 @@ fun AlarmItemCard(
     onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
-    GlassCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = String.format("%02d:%02d", alarm.hour, alarm.minute),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (alarm.isEnabled) TextPrimary else TextDisabled
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row {
-                    if (alarm.label != null) {
-                        Text(
-                            text = alarm.label,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = " • ",
-                            color = TextDisabled
-                        )
-                    }
-                    Text(
-                        text = if (alarm.daysOfWeek.isEmpty()) "One-time" else "Repeating",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextDisabled
-                    )
-                }
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else {
+                false
             }
+        }
+    )
 
-            Switch(
-                checked = alarm.isEnabled,
-                onCheckedChange = { onToggle() },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Coral,
-                    checkedTrackColor = Coral.copy(alpha = 0.3f),
-                    uncheckedThumbColor = TextDisabled,
-                    uncheckedTrackColor = GlassWhite
-                ),
-                modifier = Modifier.padding(end = 8.dp)
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            val color by androidx.compose.animation.animateColorAsState(
+                when (dismissState.targetValue) {
+                    SwipeToDismissBoxValue.EndToStart -> DustyRose
+                    else -> Clear
+                }, label = "swipe_color"
             )
-
-            IconButton(onClick = onDelete) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(color, androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = Error.copy(alpha = 0.7f)
+                    contentDescription = "Delete Icon",
+                    tint = TextOnAccent
                 )
+            }
+        }
+    ) {
+        GlassCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = String.format("%02d:%02d", alarm.hour, alarm.minute),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (alarm.isEnabled) TextPrimary else TextDisabled
+                            )
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            // Mission Type Badge
+                            val missionType = getMissionType(alarm.missionConfig)
+                            Box(
+                                modifier = Modifier
+                                    .background(if (alarm.isEnabled) Terracotta.copy(alpha = 0.2f) else WarmBrown, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = missionType.toIcon(),
+                                        contentDescription = null,
+                                        tint = if (alarm.isEnabled) Terracotta else TextDisabled,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = missionType.displayName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (alarm.isEnabled) Terracotta else TextDisabled
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (alarm.label != null && alarm.label.isNotBlank()) {
+                                Text(
+                                    text = alarm.label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary
+                                )
+                                Text(
+                                    text = " • ",
+                                    color = TextDisabled
+                                )
+                            }
+                            
+                            // Time until alarm
+                            if (alarm.isEnabled) {
+                                val timeUntil = com.infusion.sleepifyoucan.utils.getTimeUntilAlarm(alarm.hour, alarm.minute, alarm.daysOfWeek)
+                                Text(
+                                    text = timeUntil,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Sage
+                                )
+                            } else {
+                                Text(
+                                    text = "Off",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextDisabled
+                                )
+                            }
+                        }
+                    }
+
+                    Switch(
+                        checked = alarm.isEnabled,
+                        onCheckedChange = { onToggle() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Terracotta,
+                            checkedTrackColor = Terracotta.copy(alpha = 0.3f),
+                            uncheckedThumbColor = TextDisabled,
+                            uncheckedTrackColor = WarmBrown
+                        ),
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Day Schedule Badges
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val days = listOf(
+                        java.util.Calendar.MONDAY to "M",
+                        java.util.Calendar.TUESDAY to "T",
+                        java.util.Calendar.WEDNESDAY to "W",
+                        java.util.Calendar.THURSDAY to "T",
+                        java.util.Calendar.FRIDAY to "F",
+                        java.util.Calendar.SATURDAY to "S",
+                        java.util.Calendar.SUNDAY to "S"
+                    )
+                    
+                    days.forEach { (dayInt, dayStr) ->
+                        val isSelected = alarm.daysOfWeek.contains(dayInt)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(24.dp)
+                                .background(
+                                    color = if (isSelected) 
+                                        (if (alarm.isEnabled) Terracotta.copy(alpha = 0.15f) else WarmBrown) 
+                                        else Clear,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = dayStr,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) 
+                                    (if (alarm.isEnabled) Terracotta else TextSecondary) 
+                                    else TextDisabled
+                            )
+                        }
+                    }
+                }
             }
         }
     }

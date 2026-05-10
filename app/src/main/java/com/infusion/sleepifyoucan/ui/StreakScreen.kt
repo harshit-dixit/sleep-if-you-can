@@ -39,7 +39,7 @@ fun StreakScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BlackMute)
+            .background(Charcoal)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -64,7 +64,7 @@ fun StreakScreen(
         Text(
             text = "days streak",
             style = MaterialTheme.typography.headlineSmall,
-            color = YellowSand
+            color = Terracotta
         )
         
         Spacer(modifier = Modifier.height(48.dp))
@@ -130,8 +130,8 @@ fun AnimatedFlameIcon(
             val center = Offset(size.width / 2, size.height / 2)
             val gradient = Brush.radialGradient(
                 colors = listOf(
-                    YellowSand.copy(alpha = glowAlpha),
-                    OrangeJuice.copy(alpha = glowAlpha * 0.5f),
+                    Terracotta.copy(alpha = glowAlpha),
+                    DustyRose.copy(alpha = glowAlpha * 0.5f),
                     Color.Transparent
                 ),
                 center = center,
@@ -163,7 +163,7 @@ fun AnimatedFlameIcon(
             
             // Draw flame with gradient
             val flameGradient = Brush.verticalGradient(
-                colors = listOf(YellowSand, OrangeJuice, OrangeJuice.copy(alpha = 0.8f))
+                colors = listOf(Terracotta, DustyRose, DustyRose.copy(alpha = 0.8f))
             )
             drawPath(flamePath, flameGradient, style = Fill)
             
@@ -184,7 +184,7 @@ fun AnimatedFlameIcon(
             }
             
             val innerGradient = Brush.verticalGradient(
-                colors = listOf(YellowSandLight, YellowSand)
+                colors = listOf(SketchCardBg, Terracotta)
             )
             drawPath(innerFlamePath, innerGradient, style = Fill)
         }
@@ -205,7 +205,7 @@ fun WeeklyCalendarCard(
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
-            containerColor = BlackMuteSurface
+            containerColor = SketchCardBg
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -266,11 +266,11 @@ fun DayIndicator(
     isFuture: Boolean
 ) {
     val backgroundColor = when {
-        isCompleted && isToday -> PurpleNight
-        isCompleted -> GreenLand.copy(alpha = 0.8f)
-        isToday -> PurpleNight.copy(alpha = 0.3f)
-        isFuture -> BlackMuteDark
-        else -> BlackMuteDark
+        isCompleted && isToday -> Terracotta
+        isCompleted -> Sage.copy(alpha = 0.8f)
+        isToday -> Terracotta.copy(alpha = 0.3f)
+        isFuture -> Charcoal
+        else -> Charcoal
     }
     
     val contentColor = when {

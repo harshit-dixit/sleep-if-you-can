@@ -541,7 +541,51 @@ fun AddEditAlarmScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(80.dp))
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Save Alarm Button
+            Button(
+                onClick = {
+                    val newAlarm = alarm?.copy(
+                        hour = timePickerState.hour,
+                        minute = timePickerState.minute,
+                        daysOfWeek = daysOfWeek,
+                        label = label,
+                        isVibrate = isVibrate,
+                        ringtoneUri = ringtoneUri,
+                        missionConfig = buildMissionConfig(),
+                        isSnoozeEnabled = isSnoozeEnabled,
+                        snoozeDuration = snoozeDuration,
+                        isEnabled = true
+                    ) ?: Alarm(
+                        hour = timePickerState.hour,
+                        minute = timePickerState.minute,
+                        daysOfWeek = daysOfWeek,
+                        label = label,
+                        isVibrate = isVibrate,
+                        ringtoneUri = ringtoneUri,
+                        missionConfig = buildMissionConfig(),
+                        isSnoozeEnabled = isSnoozeEnabled,
+                        snoozeDuration = snoozeDuration,
+                        isEnabled = true
+                    )
+                    onSave(newAlarm)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Terracotta)
+            ) {
+                Text(
+                    text = "Save Alarm",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextOnAccent,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(48.dp))
         }
     }
 
@@ -571,9 +615,14 @@ fun MissionCard(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
         ) {
-            Text(type.emoji, fontSize = 28.sp)
+            Icon(
+                imageVector = type.toIcon(),
+                contentDescription = null,
+                tint = if (isSelected) Coral else TextSecondary,
+                modifier = Modifier.size(32.dp)
+            )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 type.displayName,
@@ -685,7 +734,7 @@ fun TryMissionDialog(
                         var count by remember { mutableIntStateOf(0) }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             MissionPreviewInfo(
-                                emoji = "📱",
+                                icon = missionType.toIcon(),
                                 title = "Shake Preview",
                                 description = "Target: $target shakes\nCurrent: $count"
                             )
@@ -712,7 +761,7 @@ fun TryMissionDialog(
                     }
                     MissionType.MEMORY -> {
                         MissionPreviewInfo(
-                            emoji = "🧠",
+                            icon = missionType.toIcon(),
                             title = "Memory Preview",
                             description = "Match all card pairs on a 4×4 grid.\nThis mission will show a grid of face-down cards — flip two at a time to find matches!"
                         )
@@ -768,7 +817,7 @@ fun TryMissionDialog(
                         val expected = (config as MissionConfig.Barcode).expectedBarcode
                         BarcodeMissionScreen(
                             expectedBarcode = expected,
-                            onBarcodeScanned = { /* preview only */ }
+                            onBarcodeScanned = { _ -> /* preview only */ }
                         )
                     }
                 }
@@ -797,7 +846,7 @@ fun TryMissionDialog(
 
 // ── Mission Preview Info (for missions that can't run in preview) ──
 @Composable
-fun MissionPreviewInfo(emoji: String, title: String, description: String) {
+fun MissionPreviewInfo(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -805,7 +854,12 @@ fun MissionPreviewInfo(emoji: String, title: String, description: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(emoji, fontSize = 64.sp)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Coral,
+            modifier = Modifier.size(64.dp)
+        )
         Spacer(Modifier.height(16.dp))
         Text(title, style = MaterialTheme.typography.headlineMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
@@ -877,15 +931,26 @@ fun WeekDaySelector(
 }
 
 // ── Mission Type Enum with Display Info ──
-enum class MissionType(val emoji: String, val displayName: String, val description: String) {
-    SHAKE("📱", "Shake", "Shake your phone"),
-    MATH("🧮", "Math", "Solve equations"),
-    MEMORY("🧠", "Memory", "Match card pairs"),
-    TYPING("⌨️", "Typing", "Type a phrase"),
-    SQUAT("🏋️", "Squat", "Do squats"),
-    STEP("🚶", "Steps", "Walk around"),
-    PHOTO("📷", "Photo", "Take a photo"),
-    BARCODE("📊", "Barcode", "Scan a code")
+enum class MissionType(val displayName: String, val description: String) {
+    SHAKE("Shake", "Shake your phone"),
+    MATH("Math", "Solve equations"),
+    MEMORY("Memory", "Match card pairs"),
+    TYPING("Typing", "Type a phrase"),
+    SQUAT("Squat", "Do squats"),
+    STEP("Steps", "Walk around"),
+    PHOTO("Photo", "Take a photo"),
+    BARCODE("Barcode", "Scan a code")
+}
+
+fun MissionType.toIcon(): androidx.compose.ui.graphics.vector.ImageVector = when (this) {
+    MissionType.SHAKE -> Icons.Default.Vibration
+    MissionType.MATH -> Icons.Default.Calculate
+    MissionType.MEMORY -> Icons.Default.Extension
+    MissionType.TYPING -> Icons.Default.Keyboard
+    MissionType.SQUAT -> Icons.Default.DirectionsWalk
+    MissionType.STEP -> Icons.Default.DirectionsWalk
+    MissionType.PHOTO -> Icons.Default.CameraAlt
+    MissionType.BARCODE -> Icons.Default.QrCodeScanner
 }
 
 fun getMissionType(config: MissionConfig?): MissionType {

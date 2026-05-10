@@ -135,8 +135,8 @@ class StreakRepository(
         val milestone = getCurrentMilestone()
         
         return when {
-            milestone == StreakMilestone.MONTHLY -> "🎉 Amazing! One month of consistent wake-ups!"
-            milestone == StreakMilestone.WEEKLY -> "🔥 One full week! You're on fire!"
+            milestone == StreakMilestone.MONTHLY -> "Amazing! One month of consistent wake-ups!"
+            milestone == StreakMilestone.WEEKLY -> "One full week! You're on fire!"
             milestone == StreakMilestone.MULTIPLE_OF_FIVE -> "⭐ $count days! Keep the momentum going!"
             count >= 3 -> MotivationalQuotes.getQuoteOfTheDay()
             count >= 1 -> "Great start! Keep it going tomorrow!"

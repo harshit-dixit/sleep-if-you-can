@@ -38,7 +38,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DeepNavy)
+            .background(Charcoal)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
@@ -130,7 +130,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showAudioDialog = false },
             title = { Text("Sound during mission", color = TextPrimary) },
-            containerColor = DarkBlue,
+            containerColor = Charcoal,
             text = {
                 Column {
                     MissionAudioBehavior.entries.forEach { behavior ->
@@ -174,7 +174,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showEscapeDialog = false },
             title = { Text("Escape prevention", color = TextPrimary) },
-            containerColor = DarkBlue,
+            containerColor = Charcoal,
             text = {
                 Column {
                     EscapePreventionMode.entries.forEach { mode ->
@@ -198,7 +198,7 @@ fun SettingsScreen(
                                 selected = preferences.escapePreventionMode == mode,
                                 onClick = null,
                                 colors = RadioButtonDefaults.colors(
-                                    selectedColor = if (mode == EscapePreventionMode.EVIL) OrangeAccent else Coral,
+                                    selectedColor = if (mode == EscapePreventionMode.EVIL) Error else Coral,
                                     unselectedColor = TextSecondary
                                 )
                             )
@@ -206,7 +206,7 @@ fun SettingsScreen(
                             Column {
                                 Text(
                                     mode.displayName(),
-                                    color = if (mode == EscapePreventionMode.EVIL) OrangeAccent else TextPrimary
+                                    color = if (mode == EscapePreventionMode.EVIL) Error else TextPrimary
                                 )
                                 Text(
                                     mode.description(),
@@ -231,11 +231,12 @@ fun SettingsScreen(
             },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("😈 ", style = MaterialTheme.typography.headlineSmall)
-                    Text("Evil Mode", color = OrangeAccent)
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = Error)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Evil Mode", color = Error)
                 }
             },
-            containerColor = DarkBlue,
+            containerColor = Charcoal,
             text = {
                 Text(
                     EvilModeHelper.getPermissionExplanation(),
@@ -249,7 +250,7 @@ fun SettingsScreen(
                         showEvilModeWarning = false
                         pendingEvilMode = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent)
+                    colors = ButtonDefaults.buttonColors(containerColor = Error)
                 ) {
                     Text("Enable Evil Mode")
                 }
