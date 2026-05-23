@@ -18,6 +18,9 @@ import androidx.compose.ui.unit.dp
 import com.infusion.sleepifyoucan.data.*
 import com.infusion.sleepifyoucan.ui.theme.*
 import com.infusion.sleepifyoucan.utils.EvilModeHelper
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
 
 /**
  * Settings screen — displayed as a tab, no separate Scaffold/TopBar.
@@ -28,12 +31,15 @@ fun SettingsScreen(
     preferences: AppPreferences,
     onMissionAudioChange: (MissionAudioBehavior) -> Unit,
     onEscapeModeChange: (EscapePreventionMode) -> Unit,
-    onVolumeEscalationChange: (Boolean) -> Unit
+    onVolumeEscalationChange: (Boolean) -> Unit,
+    onDefaultMissionChange: (String) -> Unit
 ) {
+    val context = LocalContext.current
     var showAudioDialog by remember { mutableStateOf(false) }
     var showEscapeDialog by remember { mutableStateOf(false) }
     var showEvilModeWarning by remember { mutableStateOf(false) }
     var pendingEvilMode by remember { mutableStateOf(false) }
+    var showMissionDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -88,7 +94,7 @@ fun SettingsScreen(
                 icon = Icons.Default.Extension,
                 title = "Default mission",
                 subtitle = preferences.defaultMissionType,
-                onClick = { /* TODO: Mission picker */ }
+                onClick = { showMissionDialog = true }
             )
         }
 
@@ -109,7 +115,20 @@ fun SettingsScreen(
                 icon = Icons.Default.Star,
                 title = "Rate on Play Store",
                 subtitle = "Help us improve!",
-                onClick = { /* TODO: Launch Play Store */ }
+                onClick = {
+                    val packageName = context.packageName
+                    val playStoreIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try {
+                        context.startActivity(playStoreIntent)
+                    } catch (e: Exception) {
+                        val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(webIntent)
+                    }
+                }
             )
 
             HorizontalDivider(color = GlassBorder)
@@ -118,7 +137,20 @@ fun SettingsScreen(
                 icon = Icons.Default.Email,
                 title = "Send feedback",
                 subtitle = "Report bugs or suggest features",
-                onClick = { /* TODO: Feedback form */ }
+                onClick = {
+                    val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:")
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf("feedback@infusion.com"))
+                        putExtra(Intent.EXTRA_SUBJECT, "Sleep If You Can - Feedback")
+                        putExtra(Intent.EXTRA_TEXT, "Device: ${android.os.Build.MODEL}\nAndroid Version: ${android.os.Build.VERSION.RELEASE}\n\nFeedback:")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try {
+                        context.startActivity(emailIntent)
+                    } catch (e: Exception) {
+                        android.widget.Toast.makeText(context, "No email client found", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
             )
         }
 
@@ -265,6 +297,46 @@ fun SettingsScreen(
                     Text("Cancel", color = TextSecondary)
                 }
             }
+        )
+    }
+
+    // Default Mission Picker Dialog
+    if (showMissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showMissionDialog = false },
+            title = { Text("Default mission", color = TextPrimary) },
+            containerColor = Charcoal,
+            text = {
+                Column {
+                    listOf("SHAKE", "MATH", "MEMORY", "TYPING", "SQUAT", "STEP", "PHOTO", "BARCODE").forEach { type ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onDefaultMissionChange(type)
+                                    showMissionDialog = false
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = preferences.defaultMissionType == type,
+                                onClick = null,
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = Coral,
+                                    unselectedColor = TextSecondary
+                                )
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = type.lowercase().replaceFirstChar { it.uppercase() },
+                                color = TextPrimary
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = { }
         )
     }
 }

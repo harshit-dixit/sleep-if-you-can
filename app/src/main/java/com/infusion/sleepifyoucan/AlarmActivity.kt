@@ -39,6 +39,21 @@ import com.infusion.sleepifyoucan.utils.ShakeDetector
 import com.infusion.sleepifyoucan.utils.turnScreenOnAndKeyguardOff
 import com.infusion.sleepifyoucan.ui.theme.*
 import com.infusion.sleepifyoucan.ui.*
+import androidx.lifecycle.lifecycleScope
+import com.infusion.sleepifyoucan.data.EscapePreventionMode
+import com.infusion.sleepifyoucan.data.UserPreferencesRepository
+import com.infusion.sleepifyoucan.utils.EvilModeHelper
+import kotlinx.coroutines.launch
+import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.TouchApp
+import kotlinx.coroutines.delay
 
 class AlarmActivity : ComponentActivity() {
 
@@ -78,6 +93,16 @@ class AlarmActivity : ComponentActivity() {
 
         shakeDetector = ShakeDetector(this)
         
+        // Start Evil Mode if preference is EVIL
+        val userPrefsRepository = UserPreferencesRepository(applicationContext)
+        lifecycleScope.launch {
+            userPrefsRepository.preferences.collect { prefs ->
+                if (prefs.escapePreventionMode == EscapePreventionMode.EVIL) {
+                    EvilModeHelper.startEvilMode(this@AlarmActivity)
+                }
+            }
+        }
+        
         // Mission State starts as Initial, handled by UI interaction
 
         setContent {
@@ -94,10 +119,12 @@ class AlarmActivity : ComponentActivity() {
                         viewModel.events.collect { event ->
                             when (event) {
                                 is AlarmEvent.StopAndFinish -> {
+                                    EvilModeHelper.stopEvilMode(this@AlarmActivity)
                                     stopService()
                                     finish()
                                 }
                                 is AlarmEvent.SnoozeAndFinish -> {
+                                    EvilModeHelper.stopEvilMode(this@AlarmActivity)
                                     stopService()
                                     finish()
                                 }
@@ -157,6 +184,7 @@ class AlarmActivity : ComponentActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
+        EvilModeHelper.stopEvilMode(this)
         shakeDetector.stop()
     }
 }
@@ -293,23 +321,109 @@ fun InitialAlarmScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Button(
-                    onClick = onDismissClick,
+                // Custom Press-and-Hold Dismiss Button
+                var isPressed by remember { mutableStateOf(false) }
+                var progress by remember { mutableFloatStateOf(0f) }
+                val view = LocalView.current
+                
+                LaunchedEffect(isPressed) {
+                    if (isPressed) {
+                        val startTime = System.currentTimeMillis()
+                        val duration = 3000L // 3 seconds
+                        var lastTick = 0L
+                        while (progress < 1f) {
+                            val elapsed = System.currentTimeMillis() - startTime
+                            progress = (elapsed.toFloat() / duration).coerceIn(0f, 1f)
+                            
+                            // Haptic feedback tick every 500ms
+                            val tickCount = elapsed / 500
+                            if (tickCount > lastTick) {
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                                lastTick = tickCount
+                            }
+                            
+                            if (progress >= 1f) {
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                                onDismissClick()
+                                break
+                            }
+                            delay(16)
+                        }
+                    } else {
+                        progress = 0f
+                    }
+                }
+                
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Terracotta,
-                        contentColor = TextOnAccent
-                    ),
-                    shape = RoundedCornerShape(16.dp)
+                        .height(80.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isPressed) Terracotta.copy(alpha = 0.2f) else GlassWhite)
+                        .border(
+                            width = 2.dp,
+                            color = if (isPressed) Terracotta else GlassBorder,
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                        .pointerInput(Unit) {
+                            this.awaitPointerEventScope {
+                                while (true) {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    isPressed = true
+                                    
+                                    val change = waitForUpOrCancellation()
+                                    isPressed = false
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "DISMISS",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+                    // Progress Bar background filling
+                    if (progress > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(progress)
+                                .align(Alignment.CenterStart)
+                                .background(Terracotta.copy(alpha = 0.5f))
+                        )
+                    }
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        if (isPressed) {
+                            CircularProgressIndicator(
+                                progress = { progress },
+                                color = Terracotta,
+                                strokeWidth = 3.dp,
+                                modifier = Modifier.size(24.dp),
+                                trackColor = Color.Transparent
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "HOLDING...",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.TouchApp,
+                                contentDescription = null,
+                                tint = Terracotta,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "HOLD TO DISMISS",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        }
+                    }
                 }
                 
                 if (isSnoozeEnabled) {

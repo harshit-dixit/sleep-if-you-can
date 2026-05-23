@@ -12,9 +12,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
@@ -37,6 +36,11 @@ import com.infusion.sleepifyoucan.ui.theme.*
 import com.infusion.sleepifyoucan.data.Alarm
 import com.infusion.sleepifyoucan.data.AppPreferences
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.util.lerp
+import kotlin.math.absoluteValue
 
 class MainActivity : ComponentActivity() {
 
@@ -163,7 +167,8 @@ class MainActivity : ComponentActivity() {
                                             preferences = preferences,
                                             onMissionAudioChange = { settingsViewModel.updateMissionAudioBehavior(it) },
                                             onEscapeModeChange = { settingsViewModel.updateEscapePreventionMode(it) },
-                                            onVolumeEscalationChange = { settingsViewModel.updateVolumeEscalation(it) }
+                                            onVolumeEscalationChange = { settingsViewModel.updateVolumeEscalation(it) },
+                                            onDefaultMissionChange = { settingsViewModel.updateDefaultMissionType(it) }
                                         )
                                     }
                                 }
@@ -225,6 +230,54 @@ fun AlarmListScreen(
 ) {
     val alarms by viewModel.allAlarms.collectAsState(initial = emptyList())
 
+    // Helper to calculate trigger time in millis
+    fun getRemainingMillis(alarm: Alarm): Long {
+        if (!alarm.isEnabled) return Long.MAX_VALUE
+        val now = java.util.Calendar.getInstance()
+        val alarmTime = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, alarm.hour)
+            set(java.util.Calendar.MINUTE, alarm.minute)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+
+        if (alarm.daysOfWeek.isEmpty()) {
+            if (alarmTime.before(now) || alarmTime == now) {
+                alarmTime.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            }
+        } else {
+            var found = false
+            for (i in 0..7) {
+                val candidate = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.HOUR_OF_DAY, alarm.hour)
+                    set(java.util.Calendar.MINUTE, alarm.minute)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                    add(java.util.Calendar.DAY_OF_YEAR, i)
+                }
+                val dayOfWeek = candidate.get(java.util.Calendar.DAY_OF_WEEK)
+                if (alarm.daysOfWeek.contains(dayOfWeek)) {
+                    if (i == 0 && candidate.before(now)) continue
+                    alarmTime.timeInMillis = candidate.timeInMillis
+                    found = true
+                    break
+                }
+            }
+            if (!found) {
+                alarmTime.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+        return alarmTime.timeInMillis - now.timeInMillis
+    }
+
+    // Sort alarms: next upcoming fires first
+    val sortedAlarms = remember(alarms) {
+        alarms.sortedWith(
+            compareBy<Alarm> { !it.isEnabled } // Enabled first
+                .thenBy { getRemainingMillis(it) } // Then by remaining time
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -240,7 +293,7 @@ fun AlarmListScreen(
             modifier = Modifier.padding(vertical = 24.dp)
         )
 
-        if (alarms.isEmpty()) {
+        if (sortedAlarms.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -274,7 +327,7 @@ fun AlarmListScreen(
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = { /* Will be handled by FAB anyway, or could pass navController */ },
+                            onClick = { /* Will be handled by FAB anyway */ },
                             colors = ButtonDefaults.buttonColors(containerColor = Terracotta)
                         ) {
                             Text("Create Alarm", color = TextOnAccent)
@@ -283,27 +336,80 @@ fun AlarmListScreen(
                 }
             }
         } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+            val pagerState = rememberPagerState(pageCount = { sortedAlarms.size })
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                items(alarms) { alarm ->
-                    AlarmItemCard(
-                        alarm = alarm,
-                        onClick = { onAlarmClick(alarm) },
-                        onToggle = { viewModel.toggleEnabled(alarm) },
-                        onDelete = { viewModel.delete(alarm) }
+                HorizontalPager(
+                    state = pagerState,
+                    contentPadding = PaddingValues(horizontal = 32.dp),
+                    pageSpacing = 16.dp,
+                    modifier = Modifier.weight(1f)
+                ) { page ->
+                    val alarm = sortedAlarms[page]
+
+                    val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+                    val scale = lerp(
+                        start = 0.88f,
+                        stop = 1f,
+                        fraction = (1f - pageOffset.coerceIn(0f, 1f))
                     )
+                    val alpha = lerp(
+                        start = 0.6f,
+                        stop = 1f,
+                        fraction = (1f - pageOffset.coerceIn(0f, 1f))
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                this.alpha = alpha
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AlarmItemCard(
+                            alarm = alarm,
+                            onClick = { onAlarmClick(alarm) },
+                            onToggle = { viewModel.toggleEnabled(alarm) },
+                            onDelete = { viewModel.delete(alarm) }
+                        )
+                    }
                 }
+
+                // Pager Indicators
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(sortedAlarms.size) { index ->
+                        val active = pagerState.currentPage == index
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .size(if (active) 10.dp else 6.dp)
+                                .clip(CircleShape)
+                                .background(if (active) Terracotta else TextDisabled)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
 }
 
 /**
- * Alarm Item Card with glassmorphism styling.
+ * Alarm Item Card redesigned for Pager (no SwipeToDismiss to prevent gesture conflicts).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmItemCard(
     alarm: Alarm,
@@ -311,118 +417,97 @@ fun AlarmItemCard(
     onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { dismissValue ->
-            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        }
-    )
-
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            val color by androidx.compose.animation.animateColorAsState(
-                when (dismissState.targetValue) {
-                    SwipeToDismissBoxValue.EndToStart -> DustyRose
-                    else -> Clear
-                }, label = "swipe_color"
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(color, androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete Icon",
-                    tint = TextOnAccent
-                )
-            }
-        }
+    GlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
     ) {
-        GlassCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = String.format("%02d:%02d", alarm.hour, alarm.minute),
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (alarm.isEnabled) TextPrimary else TextDisabled
+                        )
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        // Mission Type Badge
+                        val missionType = getMissionType(alarm.missionConfig)
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = if (alarm.isEnabled) Terracotta.copy(alpha = 0.2f) else WarmBrown,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = missionType.toIcon(),
+                                    contentDescription = null,
+                                    tint = if (alarm.isEnabled) Terracotta else TextDisabled,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = missionType.displayName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (alarm.isEnabled) Terracotta else TextDisabled
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (alarm.label != null && alarm.label.isNotBlank()) {
                             Text(
-                                text = String.format("%02d:%02d", alarm.hour, alarm.minute),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (alarm.isEnabled) TextPrimary else TextDisabled
+                                text = alarm.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
                             )
-                            
-                            Spacer(modifier = Modifier.width(8.dp))
-                            
-                            // Mission Type Badge
-                            val missionType = getMissionType(alarm.missionConfig)
-                            Box(
-                                modifier = Modifier
-                                    .background(if (alarm.isEnabled) Terracotta.copy(alpha = 0.2f) else WarmBrown, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = missionType.toIcon(),
-                                        contentDescription = null,
-                                        tint = if (alarm.isEnabled) Terracotta else TextDisabled,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = missionType.displayName,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (alarm.isEnabled) Terracotta else TextDisabled
-                                    )
-                                }
-                            }
+                            Text(
+                                text = " • ",
+                                color = TextDisabled
+                            )
                         }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (alarm.label != null && alarm.label.isNotBlank()) {
-                                Text(
-                                    text = alarm.label,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary
-                                )
-                                Text(
-                                    text = " • ",
-                                    color = TextDisabled
-                                )
-                            }
-                            
-                            // Time until alarm
-                            if (alarm.isEnabled) {
-                                val timeUntil = com.infusion.sleepifyoucan.utils.getTimeUntilAlarm(alarm.hour, alarm.minute, alarm.daysOfWeek)
-                                Text(
-                                    text = timeUntil,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Sage
-                                )
-                            } else {
-                                Text(
-                                    text = "Off",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextDisabled
-                                )
-                            }
+                        
+                        // Time until alarm
+                        if (alarm.isEnabled) {
+                            val timeUntil = com.infusion.sleepifyoucan.utils.getTimeUntilAlarm(alarm.hour, alarm.minute, alarm.daysOfWeek)
+                            Text(
+                                text = timeUntil,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Sage
+                            )
+                        } else {
+                            Text(
+                                text = "Off",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextDisabled
+                            )
                         }
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete alarm",
+                            tint = DustyRose
+                        )
                     }
 
                     Switch(
@@ -433,51 +518,50 @@ fun AlarmItemCard(
                             checkedTrackColor = Terracotta.copy(alpha = 0.3f),
                             uncheckedThumbColor = TextDisabled,
                             uncheckedTrackColor = WarmBrown
-                        ),
-                        modifier = Modifier.padding(start = 8.dp)
+                        )
                     )
                 }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Day Schedule Badges
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val days = listOf(
+                    java.util.Calendar.MONDAY to "M",
+                    java.util.Calendar.TUESDAY to "T",
+                    java.util.Calendar.WEDNESDAY to "W",
+                    java.util.Calendar.THURSDAY to "T",
+                    java.util.Calendar.FRIDAY to "F",
+                    java.util.Calendar.SATURDAY to "S",
+                    java.util.Calendar.SUNDAY to "S"
+                )
                 
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Day Schedule Badges
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    val days = listOf(
-                        java.util.Calendar.MONDAY to "M",
-                        java.util.Calendar.TUESDAY to "T",
-                        java.util.Calendar.WEDNESDAY to "W",
-                        java.util.Calendar.THURSDAY to "T",
-                        java.util.Calendar.FRIDAY to "F",
-                        java.util.Calendar.SATURDAY to "S",
-                        java.util.Calendar.SUNDAY to "S"
-                    )
-                    
-                    days.forEach { (dayInt, dayStr) ->
-                        val isSelected = alarm.daysOfWeek.contains(dayInt)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(24.dp)
-                                .background(
-                                    color = if (isSelected) 
-                                        (if (alarm.isEnabled) Terracotta.copy(alpha = 0.15f) else WarmBrown) 
-                                        else Clear,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = dayStr,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                days.forEach { (dayInt, dayStr) ->
+                    val isSelected = alarm.daysOfWeek.contains(dayInt)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(24.dp)
+                            .background(
                                 color = if (isSelected) 
-                                    (if (alarm.isEnabled) Terracotta else TextSecondary) 
-                                    else TextDisabled
-                            )
-                        }
+                                    (if (alarm.isEnabled) Terracotta.copy(alpha = 0.15f) else WarmBrown) 
+                                    else Clear,
+                                shape = RoundedCornerShape(4.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = dayStr,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) 
+                                (if (alarm.isEnabled) Terracotta else TextSecondary) 
+                                else TextDisabled
+                        )
                     }
                 }
             }
