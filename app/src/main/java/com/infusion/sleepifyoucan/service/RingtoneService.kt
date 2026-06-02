@@ -22,8 +22,11 @@ import androidx.core.app.NotificationCompat
 import com.infusion.sleepifyoucan.AlarmActivity
 import com.infusion.sleepifyoucan.R
 import com.infusion.sleepifyoucan.data.AlarmSound
+import com.infusion.sleepifyoucan.data.AppPreferences
+import com.infusion.sleepifyoucan.data.MissionAudioBehavior
+import com.infusion.sleepifyoucan.data.UserPreferencesRepository
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.*
-import androidx.core.app.ServiceCompat
 import android.app.Service
 
 class RingtoneService : Service() {
@@ -34,6 +37,10 @@ class RingtoneService : Service() {
     
     private var volumeJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    
+    private var appPreferences = AppPreferences()
+    private var isVibrate: Boolean = true
+    private var isVibrating: Boolean = false
 
     companion object {
         const val CHANNEL_ID = "ALARM_CHANNEL"
@@ -43,6 +50,13 @@ class RingtoneService : Service() {
         // Escape tracking for penalty system
         private var escapeCount = 0
         private var currentAlarmId: Int = 0
+        
+        @Volatile
+        var lastInteractionTime: Long = 0L
+        
+        fun recordUserInteraction() {
+            lastInteractionTime = System.currentTimeMillis()
+        }
         
         /**
          * Record an escape attempt when user leaves the alarm activity.
@@ -113,6 +127,18 @@ class RingtoneService : Service() {
         createNotificationChannel()
 
         val alarmId = intent?.getIntExtra("ALARM_ID", 0) ?: 0
+        resetForNewAlarm(alarmId)
+        lastInteractionTime = 0L // reset interaction time
+
+        // Load user preferences
+        scope.launch {
+            try {
+                appPreferences = UserPreferencesRepository(applicationContext).preferences.first()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         val ringtoneUriString = intent?.getStringExtra("RINGTONE_URI")
         val alarmSoundString = intent?.getStringExtra("ALARM_SOUND")
         val alarmSound = try {
@@ -120,7 +146,7 @@ class RingtoneService : Service() {
         } catch (e: Exception) {
             AlarmSound.DEFAULT
         }
-        val isVibrate = intent?.getBooleanExtra("IS_VIBRATE", true) ?: true
+        isVibrate = intent?.getBooleanExtra("IS_VIBRATE", true) ?: true
 
         // Prepare Activity Intent
         val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
@@ -150,7 +176,7 @@ class RingtoneService : Service() {
         // Use Alarm ID for notification to handle concurrent alarms (rare but possible)
         startForeground(if (alarmId != 0) alarmId else 1, notification)
 
-        startAlarm(ringtoneUriString, alarmSound, isVibrate)
+        startAlarm(ringtoneUriString, alarmSound)
         startVolumeEnforcement()
         
         // --- CRITICAL FIX: The Background Start Trap ---
@@ -174,20 +200,8 @@ class RingtoneService : Service() {
         return START_STICKY
     }
 
-    private fun startAlarm(ringtoneUriString: String?, alarmSound: AlarmSound, isVibrate: Boolean) {
+    private fun startAlarm(ringtoneUriString: String?, alarmSound: AlarmSound) {
         try {
-            // Audio Focus
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val focusRequest = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build()
-            
-            // Just request, we force volume anyway
-             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                 // Simplified focus request for brevity, main logic is volume loop
-             }
-
             // Select alarm sound based on AlarmSound enum
             val alarmUri: Uri = when {
                 ringtoneUriString != null -> Uri.parse(ringtoneUriString)
@@ -209,19 +223,29 @@ class RingtoneService : Service() {
                 start()
             }
 
-            if (isVibrate) {
-                val vibrationPattern = longArrayOf(0, 500, 500) // Wait 0, Vibrate 500, Sleep 500
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator?.vibrate(VibrationEffect.createWaveform(vibrationPattern, 0))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator?.vibrate(vibrationPattern, 0)
-                }
-            }
+            startVibration()
 
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private fun startVibration() {
+        if (isVibrate && !isVibrating) {
+            val vibrationPattern = longArrayOf(0, 500, 500) // Wait 0, Vibrate 500, Sleep 500
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createWaveform(vibrationPattern, 0))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(vibrationPattern, 0)
+            }
+            isVibrating = true
+        }
+    }
+
+    private fun stopVibration() {
+        vibrator?.cancel()
+        isVibrating = false
     }
 
     private fun getAlarmSoundUri(alarmSound: AlarmSound): Uri {
@@ -239,67 +263,83 @@ class RingtoneService : Service() {
             // Volume escalation: gradually increase volume over 30 seconds
             val escalationDurationMs = 30000L // 30 seconds
             val escalationSteps = 30 // 30 steps
-            val volumeIncrement = maxVolume / escalationSteps
+            val volumeIncrement = (maxVolume / escalationSteps).coerceAtLeast(1)
             val stepDurationMs = escalationDurationMs / escalationSteps
             
-            var currentStep = 0
-            var startTime = System.currentTimeMillis()
+            val startTime = System.currentTimeMillis()
             
-            while (isActive && currentStep < escalationSteps) {
+            while (isActive) {
                 try {
                     val currentTime = System.currentTimeMillis()
                     val elapsedTime = currentTime - startTime
                     
-                    // Calculate target volume based on elapsed time
-                    val targetStep = (elapsedTime / stepDurationMs).toInt().coerceIn(0, escalationSteps)
+                    // Determine baseline target volume
+                    val isEscalating = appPreferences.volumeEscalation
+                    val targetVolume = if (isEscalating) {
+                        val currentStep = (elapsedTime / stepDurationMs).toInt().coerceIn(1, escalationSteps)
+                        (volumeIncrement * currentStep).coerceIn(1, maxVolume)
+                    } else {
+                        maxVolume
+                    }
                     
-                    if (targetStep > currentStep) {
-                        currentStep = targetStep
-                        val targetVolume = (volumeIncrement * currentStep).coerceIn(1, maxVolume)
+                    // Check user interaction for Mission Audio Behavior
+                    val now = System.currentTimeMillis()
+                    val interactedRecently = lastInteractionTime > 0L && (now - lastInteractionTime) < 5000L // 5 seconds
+                    val pausedRecently = lastInteractionTime > 0L && (now - lastInteractionTime) < 10000L // 10 seconds
+                    
+                    var finalVolume = targetVolume
+                    var shouldPause = false
+                    
+                    when (appPreferences.missionAudioBehavior) {
+                        MissionAudioBehavior.ALWAYS_PLAY -> {
+                            // Do nothing, play at standard target volume
+                        }
+                        MissionAudioBehavior.REDUCE_ON_ACTIVITY -> {
+                            if (interactedRecently) {
+                                finalVolume = (targetVolume * 0.5f).toInt().coerceAtLeast(1)
+                            }
+                        }
+                        MissionAudioBehavior.PAUSE_ON_ACTIVITY -> {
+                            if (pausedRecently) {
+                                shouldPause = true
+                            }
+                        }
+                    }
+                    
+                    // Apply volume / pause state
+                    if (shouldPause) {
+                        if (mediaPlayer?.isPlaying == true) {
+                            mediaPlayer?.pause()
+                        }
+                        stopVibration()
+                    } else {
+                        if (mediaPlayer != null && !mediaPlayer!!.isPlaying) {
+                            mediaPlayer?.start()
+                        }
+                        startVibration()
                         
-                        // Set system volume
-                        audioManager.setStreamVolume(
-                            AudioManager.STREAM_ALARM,
-                            targetVolume,
-                            0 // No UI flags
-                        )
+                        // Force system volume if user attempts to lower it (unless we are in reduced/paused mode)
+                        val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+                        if (!interactedRecently && currentVolume < finalVolume) {
+                            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, finalVolume, 0)
+                        } else if (interactedRecently) {
+                            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, finalVolume, 0)
+                        }
                         
-                        // Also set MediaPlayer volume for finer control
-                        val mediaVolume = targetVolume.toFloat() / maxVolume.toFloat()
+                        val mediaVolume = finalVolume.toFloat() / maxVolume.toFloat()
                         mediaPlayer?.setVolume(mediaVolume, mediaVolume)
                     }
                     
-                    // Check if user tried to lower volume and force it back
-                    val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
-                    val expectedVolume = (volumeIncrement * currentStep).coerceIn(1, maxVolume)
-                    
-                    if (currentVolume < expectedVolume) {
-                        audioManager.setStreamVolume(
-                            AudioManager.STREAM_ALARM,
-                            expectedVolume,
-                            0
-                        )
-                        val mediaVolume = expectedVolume.toFloat() / maxVolume.toFloat()
-                        mediaPlayer?.setVolume(mediaVolume, mediaVolume)
-                    }
-                    
-                    delay(500) // Check every 500ms for smoother escalation
+                    delay(500) // Check every 500ms
                     
                 } catch (e: Exception) {
                     e.printStackTrace()
                     delay(1000)
                 }
             }
-            
-            // Ensure we reach maximum volume at the end
-            try {
-                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
-                mediaPlayer?.setVolume(1.0f, 1.0f)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
         }
     }
+
 
     override fun onDestroy() {
         super.onDestroy()

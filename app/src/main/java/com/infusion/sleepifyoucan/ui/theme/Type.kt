@@ -22,7 +22,7 @@ val AppTypography = Typography(
         fontWeight = FontWeight.ExtraBold,
         fontSize = 72.sp,
         lineHeight = 80.sp,
-        letterSpacing = (-1.5).sp
+        letterSpacing = 0.sp
     ),
     // Medium display for streak counts
     displayMedium = TextStyle(
@@ -30,7 +30,7 @@ val AppTypography = Typography(
         fontWeight = FontWeight.Bold,
         fontSize = 56.sp,
         lineHeight = 64.sp,
-        letterSpacing = (-0.5).sp
+        letterSpacing = 0.sp
     ),
     // Small display for secondary time info
     displaySmall = TextStyle(

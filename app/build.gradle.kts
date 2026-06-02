@@ -69,13 +69,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     
-    // CameraX for photo and QR missions
-    val camerax_version = "1.4.1"
-    implementation("androidx.camera:camera-core:$camerax_version")
-    implementation("androidx.camera:camera-camera2:$camerax_version")
-    implementation("androidx.camera:camera-lifecycle:$camerax_version")
-    implementation("androidx.camera:camera-view:$camerax_version")
-    
     // ZXing for QR/Barcode scanning
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     
@@ -92,7 +85,4 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    
-    // ML Kit for Photo Mission
-    implementation("com.google.mlkit:image-labeling:17.0.9")
 }

@@ -87,7 +87,7 @@ class UserPreferencesRepository(private val context: Context) {
             },
             volumeEscalation = prefs[Keys.VOLUME_ESCALATION] ?: true,
             maxSnoozeCount = prefs[Keys.MAX_SNOOZE_COUNT] ?: 3,
-            defaultMissionType = prefs[Keys.DEFAULT_MISSION_TYPE] ?: "SHAKE",
+            defaultMissionType = supportedMissionName(prefs[Keys.DEFAULT_MISSION_TYPE]),
             missionTimeoutMinutes = prefs[Keys.MISSION_TIMEOUT_MINUTES] ?: 5,
             isDarkMode = prefs[Keys.IS_DARK_MODE] ?: true,
             bedtimeReminderEnabled = prefs[Keys.BEDTIME_REMINDER_ENABLED] ?: false,
@@ -123,7 +123,7 @@ class UserPreferencesRepository(private val context: Context) {
     
     suspend fun updateDefaultMissionType(type: String) {
         context.dataStore.edit { prefs ->
-            prefs[Keys.DEFAULT_MISSION_TYPE] = type
+            prefs[Keys.DEFAULT_MISSION_TYPE] = supportedMissionName(type)
         }
     }
     
@@ -143,6 +143,12 @@ class UserPreferencesRepository(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[Keys.BEDTIME_REMINDER_ENABLED] = enabled
             time?.let { prefs[Keys.BEDTIME_REMINDER_TIME] = it }
+        }
+    }
+    private fun supportedMissionName(type: String?): String {
+        return when (type) {
+            "SHAKE", "MATH", "TYPING", "BARCODE" -> type
+            else -> "SHAKE"
         }
     }
 }

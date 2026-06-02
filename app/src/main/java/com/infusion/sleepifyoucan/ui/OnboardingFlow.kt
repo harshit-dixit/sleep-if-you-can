@@ -76,7 +76,7 @@ fun OnboardingFlow(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        "Dismiss your alarm by solving math, taking a photo, or shaking your phone.",
+                        "Dismiss your alarm by shaking your phone, solving math, typing a phrase, or scanning a saved code.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = TextSecondary,
                         textAlign = TextAlign.Center
@@ -160,7 +160,7 @@ private fun LazyVerticalGridDemo() {
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         MissionChip(Icons.Default.Vibration, "Shake")
         MissionChip(Icons.Default.Calculate, "Math")
-        MissionChip(Icons.Default.CameraAlt, "Photo")
+        MissionChip(Icons.Default.Keyboard, "Typing")
     }
 }
 

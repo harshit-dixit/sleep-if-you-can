@@ -8,7 +8,6 @@ import android.os.Build
 import android.util.Log
 import com.google.gson.Gson
 import com.infusion.sleepifyoucan.AlarmReceiver
-import java.util.Calendar
 
 class AlarmScheduler(private val context: Context) {
 
@@ -17,7 +16,7 @@ class AlarmScheduler(private val context: Context) {
 
     fun schedule(alarm: Alarm) {
         // 1. Calculate next trigger time
-        val triggerTime = calculateNextTriggerTime(alarm)
+        val triggerTime = AlarmScheduleCalculator.nextTriggerTimeMillis(alarm)
         
         // 2. Schedule it
         scheduleExact(alarm, triggerTime, isSnooze = false)
@@ -87,54 +86,4 @@ class AlarmScheduler(private val context: Context) {
         Log.d("AlarmScheduler", "Cancelled alarm ${alarm.id}")
     }
     
-    // --- Helper Logic ---
-    
-    private fun calculateNextTriggerTime(alarm: Alarm): Long {
-         val now = Calendar.getInstance()
-        val alarmTime = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, alarm.hour)
-            set(Calendar.MINUTE, alarm.minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-
-        if (alarm.daysOfWeek.isEmpty()) {
-            // One-time alarm
-            if (alarmTime.before(now) || alarmTime.timeInMillis == now.timeInMillis) {
-                alarmTime.add(Calendar.DAY_OF_YEAR, 1)
-            }
-            return alarmTime.timeInMillis
-        } else {
-            // Repeating Alarm: Find next matching day
-            // daysOfWeek: 1=Sun, 2=Mon, ... 7=Sat (Matches Calendar.SUNDAY etc.)
-            
-            // If alarmTime is today but in the past, we must start checking from tomorrow
-            val startCheck = if (alarmTime.before(now)) 1 else 0
-            
-            for (i in startCheck..7) {
-                val checkDay = (now.get(Calendar.DAY_OF_WEEK) + i) 
-                // Adjust to 1..7 range if needed, but Calendar.DAY_OF_WEEK is 1-based (Sun=1).
-                // Wait, (now + i) might exceed 7.
-                // Correct logic:
-                var currentDayOfWeek = now.get(Calendar.DAY_OF_WEEK) // 1..7
-                
-                // We want to check 'i' days into the future
-                val futureDayOfWeek = ((currentDayOfWeek + i - 1) % 7) + 1
-                
-                if (alarm.daysOfWeek.contains(futureDayOfWeek)) {
-                    // This is the day!
-                    val target = Calendar.getInstance().apply {
-                        add(Calendar.DAY_OF_YEAR, i)
-                        set(Calendar.HOUR_OF_DAY, alarm.hour)
-                        set(Calendar.MINUTE, alarm.minute)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }
-                    return target.timeInMillis
-                }
-            }
-            // Fallback (Should not happen if list not empty)
-            return alarmTime.timeInMillis
-        }
-    }
 }

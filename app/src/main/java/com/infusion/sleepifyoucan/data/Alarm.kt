@@ -22,12 +22,8 @@ data class Alarm(
 sealed class MissionConfig {
     data class Shake(val targetShakes: Int = 20) : MissionConfig()
     data class Math(val difficulty: Difficulty = Difficulty.EASY, val problemCount: Int = 3) : MissionConfig()
-    data class Memory(val gridSize: Int = 4) : MissionConfig()
     data class Typing(val targetWord: String = "HELLO", val caseSensitive: Boolean = false) : MissionConfig()
-    data class Squat(val targetSquats: Int = 10) : MissionConfig()
-    data class Step(val targetSteps: Int = 50) : MissionConfig()
-    data class Photo(val requiredObject: String = "coffee") : MissionConfig()
-    data class Barcode(val expectedBarcode: String? = null) : MissionConfig()
+    data class Barcode(val expectedBarcode: String) : MissionConfig()
 }
 
 enum class Difficulty {

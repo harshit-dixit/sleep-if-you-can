@@ -1,28 +1,25 @@
 package com.infusion.sleepifyoucan
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
-import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.addCallback
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import com.infusion.sleepifyoucan.data.AlarmRepository
 import com.infusion.sleepifyoucan.data.AlarmScheduler
 import com.infusion.sleepifyoucan.data.Converters
@@ -34,7 +31,6 @@ import com.infusion.sleepifyoucan.ui.AlarmRingingViewModel
 import com.infusion.sleepifyoucan.ui.MissionState
 import com.infusion.sleepifyoucan.ui.ShakeMissionScreen
 import com.infusion.sleepifyoucan.ui.MathMissionScreen
-import com.infusion.sleepifyoucan.ui.MemoryMissionScreen
 import com.infusion.sleepifyoucan.utils.ShakeDetector
 import com.infusion.sleepifyoucan.utils.turnScreenOnAndKeyguardOff
 import com.infusion.sleepifyoucan.ui.theme.*
@@ -42,6 +38,7 @@ import com.infusion.sleepifyoucan.ui.*
 import androidx.lifecycle.lifecycleScope
 import com.infusion.sleepifyoucan.data.EscapePreventionMode
 import com.infusion.sleepifyoucan.data.UserPreferencesRepository
+import com.infusion.sleepifyoucan.data.AppPreferences
 import com.infusion.sleepifyoucan.utils.EvilModeHelper
 import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.*
@@ -52,12 +49,13 @@ import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.PlayArrow
 import kotlinx.coroutines.delay
 
 class AlarmActivity : ComponentActivity() {
 
     private lateinit var shakeDetector: ShakeDetector
+    private var escapePreventionMode: EscapePreventionMode = EscapePreventionMode.BALANCED
     
     // Lazy ViewModel initialization with Factory
     private val viewModel: AlarmRingingViewModel by viewModels {
@@ -70,11 +68,13 @@ class AlarmActivity : ComponentActivity() {
             MissionConfig.Shake()
         }
         val alarmScheduler = AlarmScheduler(this)
+        val userPreferencesRepository = UserPreferencesRepository(applicationContext)
         
         AlarmRingingViewModel.Factory(
             AlarmRepository(app.database.alarmDao(), alarmScheduler),
             StreakRepository(app.database.streakDao(), this),
             alarmScheduler,
+            userPreferencesRepository,
             alarmId,
             missionConfig,
             this
@@ -97,8 +97,11 @@ class AlarmActivity : ComponentActivity() {
         val userPrefsRepository = UserPreferencesRepository(applicationContext)
         lifecycleScope.launch {
             userPrefsRepository.preferences.collect { prefs ->
+                escapePreventionMode = prefs.escapePreventionMode
                 if (prefs.escapePreventionMode == EscapePreventionMode.EVIL) {
                     EvilModeHelper.startEvilMode(this@AlarmActivity)
+                } else {
+                    EvilModeHelper.stopEvilMode(this@AlarmActivity)
                 }
             }
         }
@@ -106,12 +109,13 @@ class AlarmActivity : ComponentActivity() {
         // Mission State starts as Initial, handled by UI interaction
 
         setContent {
+            val prefs by userPrefsRepository.preferences.collectAsState(initial = AppPreferences())
+            
             SleepIfYouCanTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = Charcoal
                 ) {
-                    val missionState by viewModel.missionState.collectAsState()
                     val snoozeCount by viewModel.snoozeCount.collectAsState()
                     
                     // One-shot events from ViewModel (snooze, finish)
@@ -135,7 +139,7 @@ class AlarmActivity : ComponentActivity() {
                     AlarmRingingScreenHost(
                         label = intent.getStringExtra("LABEL"),
                         isSnoozeEnabled = intent.getBooleanExtra("IS_SNOOZE_ENABLED", true) &&
-                                snoozeCount < AlarmRingingViewModel.MAX_SNOOZE_ATTEMPTS,
+                                snoozeCount < prefs.maxSnoozeCount,
                         snoozeDuration = intent.getIntExtra("SNOOZE_DURATION", 5),
                         viewModel = viewModel,
                         shakeDetector = shakeDetector
@@ -143,6 +147,11 @@ class AlarmActivity : ComponentActivity() {
                 }
             }
         }
+    }
+    
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        RingtoneService.recordUserInteraction()
     }
     
     private fun stopService() {
@@ -165,7 +174,11 @@ class AlarmActivity : ComponentActivity() {
         super.onStop()
         val missionState = viewModel.missionState.value
         // If user leaves during an active mission (not Initial or Completed), count as escape
-        if (missionState !is MissionState.Completed && missionState !is MissionState.Initial) {
+        if (
+            escapePreventionMode != EscapePreventionMode.OFF &&
+            missionState !is MissionState.Completed &&
+            missionState !is MissionState.Initial
+        ) {
             val alarmId = intent.getIntExtra("ALARM_ID", 0)
             RingtoneService.recordEscape(alarmId)
             
@@ -231,38 +244,12 @@ fun AlarmRingingScreenHost(
                 onSolved = { viewModel.onMathSolved() }
             )
         }
-        is MissionState.Memory -> {
-            MemoryMissionScreen(
-                state = state,
-                onCardClick = { viewModel.onCardClicked(it) }
-            )
-        }
         is MissionState.Typing -> {
             TypingMissionScreen(
                 targetWord = state.targetWord,
                 currentInput = state.currentInput,
                 caseSensitive = state.caseSensitive,
                 onInputChange = { viewModel.onTypingInput(it) }
-            )
-        }
-        is MissionState.Squat -> {
-            SquatMissionScreen(
-                targetSquats = state.target,
-                currentSquats = state.current,
-                onSquatDetected = { viewModel.onSquatDetected() }
-            )
-        }
-        is MissionState.Step -> {
-            StepMissionScreen(
-                targetSteps = state.target,
-                currentSteps = state.current,
-                onStepDetected = { viewModel.onStepDetected() }
-            )
-        }
-        is MissionState.Photo -> {
-            PhotoMissionScreen(
-                requiredObject = state.requiredObject,
-                onPhotoTaken = { viewModel.onPhotoTaken() }
             )
         }
         is MissionState.Barcode -> {
@@ -291,10 +278,10 @@ fun InitialAlarmScreen(
     onDismissClick: () -> Unit,
     onSnoozeClick: () -> Unit
 ) {
-     Column(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(GradientPrimary)
+                .background(Canvas)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
@@ -321,7 +308,7 @@ fun InitialAlarmScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Custom Press-and-Hold Dismiss Button
+                // A short hold prevents accidental taps while the alarm is ringing.
                 var isPressed by remember { mutableStateOf(false) }
                 var progress by remember { mutableFloatStateOf(0f) }
                 val view = LocalView.current
@@ -357,21 +344,21 @@ fun InitialAlarmScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(80.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(if (isPressed) Terracotta.copy(alpha = 0.2f) else GlassWhite)
+                        .height(72.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isPressed) SurfaceElevated else Surface)
                         .border(
-                            width = 2.dp,
-                            color = if (isPressed) Terracotta else GlassBorder,
-                            shape = RoundedCornerShape(20.dp)
+                            width = 1.dp,
+                            color = if (isPressed) HairlineStrong else Hairline,
+                            shape = RoundedCornerShape(10.dp)
                         )
                         .pointerInput(Unit) {
                             this.awaitPointerEventScope {
                                 while (true) {
-                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    awaitFirstDown(requireUnconsumed = false)
                                     isPressed = true
                                     
-                                    val change = waitForUpOrCancellation()
+                                    waitForUpOrCancellation()
                                     isPressed = false
                                 }
                             }
@@ -385,7 +372,7 @@ fun InitialAlarmScreen(
                                 .fillMaxHeight()
                                 .fillMaxWidth(progress)
                                 .align(Alignment.CenterStart)
-                                .background(Terracotta.copy(alpha = 0.5f))
+                                .background(AccentYellowSoft)
                         )
                     }
                     
@@ -396,7 +383,7 @@ fun InitialAlarmScreen(
                         if (isPressed) {
                             CircularProgressIndicator(
                                 progress = { progress },
-                                color = Terracotta,
+                                color = AccentYellow,
                                 strokeWidth = 3.dp,
                                 modifier = Modifier.size(24.dp),
                                 trackColor = Color.Transparent
@@ -410,14 +397,14 @@ fun InitialAlarmScreen(
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Default.TouchApp,
+                                imageVector = Icons.Default.PlayArrow,
                                 contentDescription = null,
-                                tint = Terracotta,
+                                tint = AccentYellow,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "HOLD TO DISMISS",
+                                text = "HOLD TO START MISSION",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary
@@ -434,8 +421,9 @@ fun InitialAlarmScreen(
                             .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = TextSecondary
-                        )
+                            contentColor = AccentBlue
+                        ),
+                        border = BorderStroke(1.dp, AccentBlueSoft)
                     ) {
                         Text(
                             "SNOOZE ($snoozeDuration min)",

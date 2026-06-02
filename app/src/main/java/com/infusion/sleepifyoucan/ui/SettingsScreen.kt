@@ -7,6 +7,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,7 +34,8 @@ fun SettingsScreen(
     onMissionAudioChange: (MissionAudioBehavior) -> Unit,
     onEscapeModeChange: (EscapePreventionMode) -> Unit,
     onVolumeEscalationChange: (Boolean) -> Unit,
-    onDefaultMissionChange: (String) -> Unit
+    onDefaultMissionChange: (String) -> Unit,
+    onMaxSnoozeChange: (Int) -> Unit
 ) {
     val context = LocalContext.current
     var showAudioDialog by remember { mutableStateOf(false) }
@@ -40,6 +43,7 @@ fun SettingsScreen(
     var showEvilModeWarning by remember { mutableStateOf(false) }
     var pendingEvilMode by remember { mutableStateOf(false) }
     var showMissionDialog by remember { mutableStateOf(false) }
+    var showSnoozeDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -77,8 +81,17 @@ fun SettingsScreen(
 
             HorizontalDivider(color = GlassBorder)
 
+            SettingsItem(
+                icon = Icons.Default.Snooze,
+                title = "Max snooze count",
+                subtitle = if (preferences.maxSnoozeCount >= 99) "Unlimited" else "${preferences.maxSnoozeCount} times",
+                onClick = { showSnoozeDialog = true }
+            )
+
+            HorizontalDivider(color = GlassBorder)
+
             SettingsToggleItem(
-                icon = Icons.Default.VolumeUp,
+                icon = Icons.AutoMirrored.Filled.VolumeUp,
                 title = "Gradual volume increase",
                 subtitle = "Start quiet, get louder over time",
                 checked = preferences.volumeEscalation,
@@ -93,7 +106,7 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.Extension,
                 title = "Default mission",
-                subtitle = preferences.defaultMissionType,
+                subtitle = missionDisplayName(preferences.defaultMissionType),
                 onClick = { showMissionDialog = true }
             )
         }
@@ -308,7 +321,7 @@ fun SettingsScreen(
             containerColor = Charcoal,
             text = {
                 Column {
-                    listOf("SHAKE", "MATH", "MEMORY", "TYPING", "SQUAT", "STEP", "PHOTO", "BARCODE").forEach { type ->
+                    listOf("SHAKE", "MATH", "TYPING", "BARCODE").forEach { type ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -329,7 +342,47 @@ fun SettingsScreen(
                             )
                             Spacer(Modifier.width(12.dp))
                             Text(
-                                text = type.lowercase().replaceFirstChar { it.uppercase() },
+                                text = missionDisplayName(type),
+                                color = TextPrimary
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = { }
+        )
+    }
+
+    // Snooze Dialog
+    if (showSnoozeDialog) {
+        AlertDialog(
+            onDismissRequest = { showSnoozeDialog = false },
+            title = { Text("Max snooze count", color = TextPrimary) },
+            containerColor = Charcoal,
+            text = {
+                Column {
+                    listOf(1, 2, 3, 5, 99).forEach { count ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onMaxSnoozeChange(count)
+                                    showSnoozeDialog = false
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = preferences.maxSnoozeCount == count,
+                                onClick = null,
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = Coral,
+                                    unselectedColor = TextSecondary
+                                )
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = if (count >= 99) "Unlimited" else "${count} times",
                                 color = TextPrimary
                             )
                         }
@@ -387,7 +440,7 @@ fun SettingsItem(
                 color = TextSecondary
             )
         }
-        Icon(Icons.Default.KeyboardArrowRight, null, tint = TextDisabled)
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = TextDisabled)
     }
 }
 
@@ -425,5 +478,15 @@ fun SettingsToggleItem(
                 uncheckedTrackColor = GlassWhite
             )
         )
+    }
+}
+
+private fun missionDisplayName(type: String): String {
+    return when (type) {
+        "SHAKE" -> "Shake"
+        "MATH" -> "Math"
+        "TYPING" -> "Typing"
+        "BARCODE" -> "Barcode"
+        else -> "Shake"
     }
 }

@@ -77,22 +77,14 @@ data class MissionConfigWrapper(
         type = when (config) {
             is MissionConfig.Shake -> "SHAKE"
             is MissionConfig.Math -> "MATH"
-            is MissionConfig.Memory -> "MEMORY"
             is MissionConfig.Typing -> "TYPING"
-            is MissionConfig.Squat -> "SQUAT"
-            is MissionConfig.Step -> "STEP"
-            is MissionConfig.Photo -> "PHOTO"
             is MissionConfig.Barcode -> "BARCODE"
         },
         shakeTarget = if (config is MissionConfig.Shake) config.targetShakes else null,
         mathDifficulty = if (config is MissionConfig.Math) config.difficulty.name else null,
         mathCount = if (config is MissionConfig.Math) config.problemCount else null,
-        memoryGridSize = if (config is MissionConfig.Memory) config.gridSize else null,
         typingTargetWord = if (config is MissionConfig.Typing) config.targetWord else null,
         typingCaseSensitive = if (config is MissionConfig.Typing) config.caseSensitive else null,
-        squatTarget = if (config is MissionConfig.Squat) config.targetSquats else null,
-        stepTarget = if (config is MissionConfig.Step) config.targetSteps else null,
-        photoRequiredObject = if (config is MissionConfig.Photo) config.requiredObject else null,
         barcodeExpected = if (config is MissionConfig.Barcode) config.expectedBarcode else null
     )
 
@@ -103,15 +95,15 @@ data class MissionConfigWrapper(
                 Difficulty.valueOf(mathDifficulty ?: "EASY"),
                 mathCount ?: 3
             )
-            "MEMORY" -> MissionConfig.Memory(memoryGridSize ?: 4)
             "TYPING" -> MissionConfig.Typing(
                 typingTargetWord ?: "HELLO",
                 typingCaseSensitive ?: false
             )
-            "SQUAT" -> MissionConfig.Squat(squatTarget ?: 10)
-            "STEP" -> MissionConfig.Step(stepTarget ?: 50)
-            "PHOTO" -> MissionConfig.Photo(photoRequiredObject ?: "coffee")
-            "BARCODE" -> MissionConfig.Barcode(barcodeExpected)
+            "BARCODE" -> if (barcodeExpected.isNullOrBlank()) {
+                MissionConfig.Shake(20)
+            } else {
+                MissionConfig.Barcode(barcodeExpected)
+            }
             else -> MissionConfig.Shake(20) // Fallback
         }
     }
