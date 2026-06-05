@@ -43,6 +43,7 @@ class AlarmScheduler(private val context: Context) {
             putExtra("IS_VIBRATE", alarm.isVibrate)
             putExtra("IS_SNOOZE_ENABLED", alarm.isSnoozeEnabled)
             putExtra("SNOOZE_DURATION", alarm.snoozeDuration)
+            putExtra("IS_WAKE_UP_CHECK_ENABLED", alarm.isWakeUpCheckEnabled)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(

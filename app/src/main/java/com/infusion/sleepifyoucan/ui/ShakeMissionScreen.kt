@@ -54,6 +54,7 @@ fun ShakeMissionScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(GradientPrimary)
+            .safeDrawingPadding()
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {

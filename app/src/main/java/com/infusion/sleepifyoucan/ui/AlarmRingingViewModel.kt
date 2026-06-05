@@ -4,6 +4,7 @@ import android.os.Parcelable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.infusion.sleepifyoucan.data.Alarm
 import com.infusion.sleepifyoucan.data.AlarmRepository
 import com.infusion.sleepifyoucan.data.AlarmScheduler
 import com.infusion.sleepifyoucan.data.MissionConfig
@@ -153,15 +154,7 @@ class AlarmRingingViewModel(
 
         viewModelScope.launch {
             val alarm = alarmRepository.getAlarmById(alarmId)
-            if (alarm != null) {
-                if (alarm.daysOfWeek.isEmpty()) {
-                    alarmRepository.toggleEnabled(alarm, false)
-                } else {
-                    alarmScheduler.schedule(alarm)
-                }
-            }
-            updateState(MissionState.Completed)
-            _events.emit(AlarmEvent.StopAndFinish)
+            completeAlarm(alarm)
         }
     }
 
@@ -187,8 +180,25 @@ class AlarmRingingViewModel(
     private fun finishMission(type: String) {
         viewModelScope.launch {
             streakRepository.recordSuccessfulWakeUp(alarmId, type)
-            updateState(MissionState.WakeUpCheck)
+            val alarm = alarmRepository.getAlarmById(alarmId)
+            if (alarm?.isWakeUpCheckEnabled == true) {
+                updateState(MissionState.WakeUpCheck)
+            } else {
+                completeAlarm(alarm)
+            }
         }
+    }
+
+    private suspend fun completeAlarm(alarm: Alarm?) {
+        if (alarm != null) {
+            if (alarm.daysOfWeek.isEmpty()) {
+                alarmRepository.toggleEnabled(alarm, false)
+            } else {
+                alarmScheduler.schedule(alarm)
+            }
+        }
+        updateState(MissionState.Completed)
+        _events.emit(AlarmEvent.StopAndFinish)
     }
 
     private fun updateState(newState: MissionState) {

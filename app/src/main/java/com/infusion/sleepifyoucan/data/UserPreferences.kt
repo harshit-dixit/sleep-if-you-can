@@ -25,6 +25,7 @@ data class AppPreferences(
     
     // Appearance
     val isDarkMode: Boolean = true,
+    val use24HourFormat: Boolean = false,
     
     // Notifications
     val bedtimeReminderEnabled: Boolean = false,
@@ -62,6 +63,7 @@ class UserPreferencesRepository(private val context: Context) {
         val DEFAULT_MISSION_TYPE = stringPreferencesKey("default_mission_type")
         val MISSION_TIMEOUT_MINUTES = intPreferencesKey("mission_timeout_minutes")
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
+        val USE_24_HOUR_FORMAT = booleanPreferencesKey("use_24_hour_format")
         val BEDTIME_REMINDER_ENABLED = booleanPreferencesKey("bedtime_reminder_enabled")
         val BEDTIME_REMINDER_TIME = stringPreferencesKey("bedtime_reminder_time")
     }
@@ -90,6 +92,7 @@ class UserPreferencesRepository(private val context: Context) {
             defaultMissionType = supportedMissionName(prefs[Keys.DEFAULT_MISSION_TYPE]),
             missionTimeoutMinutes = prefs[Keys.MISSION_TIMEOUT_MINUTES] ?: 5,
             isDarkMode = prefs[Keys.IS_DARK_MODE] ?: true,
+            use24HourFormat = prefs[Keys.USE_24_HOUR_FORMAT] ?: false,
             bedtimeReminderEnabled = prefs[Keys.BEDTIME_REMINDER_ENABLED] ?: false,
             bedtimeReminderTime = prefs[Keys.BEDTIME_REMINDER_TIME] ?: "22:00"
         )
@@ -136,6 +139,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateDarkMode(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[Keys.IS_DARK_MODE] = enabled
+        }
+    }
+
+    suspend fun updateUse24HourFormat(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.USE_24_HOUR_FORMAT] = enabled
         }
     }
     

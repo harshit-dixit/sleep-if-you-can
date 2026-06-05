@@ -5,6 +5,10 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
+import android.view.View
+import android.view.WindowInsets
+import android.view.WindowInsetsController
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.addCallback
@@ -56,6 +60,7 @@ class AlarmActivity : ComponentActivity() {
 
     private lateinit var shakeDetector: ShakeDetector
     private var escapePreventionMode: EscapePreventionMode = EscapePreventionMode.BALANCED
+    private var alarmFlowSettled = false
     
     // Lazy ViewModel initialization with Factory
     private val viewModel: AlarmRingingViewModel by viewModels {
@@ -84,7 +89,7 @@ class AlarmActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        turnScreenOnAndKeyguardOff()
+        enterRingingWindowMode()
         
         // Disable Back Button
         onBackPressedDispatcher.addCallback(this) {
@@ -123,11 +128,13 @@ class AlarmActivity : ComponentActivity() {
                         viewModel.events.collect { event ->
                             when (event) {
                                 is AlarmEvent.StopAndFinish -> {
+                                    alarmFlowSettled = true
                                     EvilModeHelper.stopEvilMode(this@AlarmActivity)
                                     stopService()
                                     finish()
                                 }
                                 is AlarmEvent.SnoozeAndFinish -> {
+                                    alarmFlowSettled = true
                                     EvilModeHelper.stopEvilMode(this@AlarmActivity)
                                     stopService()
                                     finish()
@@ -147,6 +154,11 @@ class AlarmActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        enterRingingWindowMode()
     }
     
     override fun onUserInteraction() {
@@ -173,11 +185,11 @@ class AlarmActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         val missionState = viewModel.missionState.value
-        // If user leaves during an active mission (not Initial or Completed), count as escape
+        // If user leaves before the alarm is settled, count it as an escape and bring the alarm back.
         if (
+            !alarmFlowSettled &&
             escapePreventionMode != EscapePreventionMode.OFF &&
-            missionState !is MissionState.Completed &&
-            missionState !is MissionState.Initial
+            missionState !is MissionState.Completed
         ) {
             val alarmId = intent.getIntExtra("ALARM_ID", 0)
             RingtoneService.recordEscape(alarmId)
@@ -186,7 +198,11 @@ class AlarmActivity : ComponentActivity() {
             Handler(Looper.getMainLooper()).postDelayed({
                 if (!isFinishing && !isDestroyed) {
                     val relaunchIntent = Intent(this, AlarmActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                        )
                         intent.extras?.let { putExtras(it) }
                     }
                     startActivity(relaunchIntent)
@@ -199,6 +215,27 @@ class AlarmActivity : ComponentActivity() {
         super.onDestroy()
         EvilModeHelper.stopEvilMode(this)
         shakeDetector.stop()
+    }
+
+    private fun enterRingingWindowMode() {
+        turnScreenOnAndKeyguardOff()
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            window.insetsController?.let { controller ->
+                controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                controller.systemBarsBehavior =
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility =
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                        View.SYSTEM_UI_FLAG_FULLSCREEN or
+                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        }
     }
 }
 
@@ -282,6 +319,7 @@ fun InitialAlarmScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Canvas)
+                .safeDrawingPadding()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween

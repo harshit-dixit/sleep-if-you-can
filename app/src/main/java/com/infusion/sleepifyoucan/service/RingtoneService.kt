@@ -164,7 +164,7 @@ class RingtoneService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("ALARM RINGING!")
-            .setContentText("Shake to dismiss!")
+            .setContentText("Complete your mission to dismiss.")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

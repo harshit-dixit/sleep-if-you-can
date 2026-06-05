@@ -16,6 +16,7 @@ data class Alarm(
     val isVibrate: Boolean = true,
     val isSnoozeEnabled: Boolean = true,
     val snoozeDuration: Int = 5,
+    val isWakeUpCheckEnabled: Boolean = true,
     val missionConfig: MissionConfig = MissionConfig.Shake() // Default to Shake
 )
 

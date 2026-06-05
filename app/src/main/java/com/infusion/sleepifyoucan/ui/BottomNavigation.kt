@@ -42,6 +42,7 @@ fun BottomNavigationBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .glassNavBar() // Uses warm gradients from Glassmorphism.kt
             .padding(vertical = 12.dp, horizontal = 24.dp),
         horizontalArrangement = Arrangement.SpaceAround,

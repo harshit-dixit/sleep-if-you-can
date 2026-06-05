@@ -55,6 +55,7 @@ fun TypingMissionScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Charcoal)
+            .safeDrawingPadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center

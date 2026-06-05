@@ -111,6 +111,7 @@ fun MathMissionScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
                 .graphicsLayer { translationX = shakeOffset.value }
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally

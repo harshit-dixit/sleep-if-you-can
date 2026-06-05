@@ -35,7 +35,8 @@ fun SettingsScreen(
     onEscapeModeChange: (EscapePreventionMode) -> Unit,
     onVolumeEscalationChange: (Boolean) -> Unit,
     onDefaultMissionChange: (String) -> Unit,
-    onMaxSnoozeChange: (Int) -> Unit
+    onMaxSnoozeChange: (Int) -> Unit,
+    onTimeFormatChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     var showAudioDialog by remember { mutableStateOf(false) }
@@ -44,6 +45,7 @@ fun SettingsScreen(
     var pendingEvilMode by remember { mutableStateOf(false) }
     var showMissionDialog by remember { mutableStateOf(false) }
     var showSnoozeDialog by remember { mutableStateOf(false) }
+    var showTimeFormatDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -113,6 +115,18 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // APPEARANCE Section
+        SettingsSection(title = "Appearance") {
+            SettingsItem(
+                icon = Icons.Default.Schedule,
+                title = "Time format",
+                subtitle = if (preferences.use24HourFormat) "24-hour" else "12-hour (AM/PM)",
+                onClick = { showTimeFormatDialog = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         // ABOUT Section
         SettingsSection(title = "About") {
             SettingsItem(
@@ -168,6 +182,42 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(80.dp))
+    }
+
+    if (showTimeFormatDialog) {
+        AlertDialog(
+            onDismissRequest = { showTimeFormatDialog = false },
+            title = { Text("Time format", color = TextPrimary) },
+            containerColor = Charcoal,
+            text = {
+                Column {
+                    listOf(false to "12-hour (AM/PM)", true to "24-hour").forEach { (use24Hour, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onTimeFormatChange(use24Hour)
+                                    showTimeFormatDialog = false
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = preferences.use24HourFormat == use24Hour,
+                                onClick = null,
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = Coral,
+                                    unselectedColor = TextSecondary
+                                )
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(label, color = TextPrimary)
+                        }
+                    }
+                }
+            },
+            confirmButton = { }
+        )
     }
 
     // Audio Behavior Dialog

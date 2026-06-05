@@ -97,6 +97,7 @@ import java.util.Calendar
 fun AddEditAlarmScreen(
     alarm: Alarm? = null,
     defaultMissionType: String = "SHAKE",
+    use24HourFormat: Boolean = false,
     onSave: (Alarm) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -111,7 +112,7 @@ fun AddEditAlarmScreen(
     val timePickerState = rememberTimePickerState(
         initialHour = calendar.get(Calendar.HOUR_OF_DAY),
         initialMinute = calendar.get(Calendar.MINUTE),
-        is24Hour = false
+        is24Hour = use24HourFormat
     )
 
     var daysOfWeek by remember { mutableStateOf(alarm?.daysOfWeek ?: emptyList()) }
@@ -120,6 +121,7 @@ fun AddEditAlarmScreen(
     var ringtoneUri by remember { mutableStateOf(alarm?.ringtoneUri) }
     var isSnoozeEnabled by remember { mutableStateOf(alarm?.isSnoozeEnabled ?: true) }
     var snoozeDuration by remember { mutableIntStateOf(alarm?.snoozeDuration ?: 5) }
+    var isWakeUpCheckEnabled by remember { mutableStateOf(alarm?.isWakeUpCheckEnabled ?: true) }
 
     var missionType by remember {
         mutableStateOf(
@@ -196,6 +198,7 @@ fun AddEditAlarmScreen(
             missionConfig = buildMissionConfig(),
             isSnoozeEnabled = isSnoozeEnabled,
             snoozeDuration = snoozeDuration,
+            isWakeUpCheckEnabled = isWakeUpCheckEnabled,
             isEnabled = true
         ) ?: Alarm(
             hour = timePickerState.hour,
@@ -207,6 +210,7 @@ fun AddEditAlarmScreen(
             missionConfig = buildMissionConfig(),
             isSnoozeEnabled = isSnoozeEnabled,
             snoozeDuration = snoozeDuration,
+            isWakeUpCheckEnabled = isWakeUpCheckEnabled,
             isEnabled = true
         )
         onSave(newAlarm)
@@ -522,6 +526,35 @@ fun AddEditAlarmScreen(
                             )
                         }
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Check, null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Wake-up check", color = TextPrimary)
+                        Text(
+                            "Confirm you are awake after the mission",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Switch(
+                        checked = isWakeUpCheckEnabled,
+                        onCheckedChange = { isWakeUpCheckEnabled = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Coral,
+                            checkedTrackColor = Coral.copy(0.3f),
+                            uncheckedThumbColor = TextDisabled,
+                            uncheckedTrackColor = GlassWhite
+                        )
+                    )
                 }
             }
 

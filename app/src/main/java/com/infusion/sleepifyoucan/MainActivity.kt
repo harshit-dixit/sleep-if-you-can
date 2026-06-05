@@ -184,6 +184,7 @@ class MainActivity : ComponentActivity() {
                     val snackbarHostState = remember { SnackbarHostState() }
                     val viewModel: AlarmViewModel = viewModel(factory = AlarmViewModel.Factory(alarmRepository))
                     val settingsViewModel: SettingsViewModel = viewModel()
+                    val preferences by settingsViewModel.preferences.collectAsState()
                     var selectedTab by remember { mutableStateOf(AppDestination.ALARMS) }
 
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -230,6 +231,7 @@ class MainActivity : ComponentActivity() {
                                     AppDestination.ALARMS -> {
                                         AlarmListScreen(
                                             viewModel = viewModel,
+                                            use24HourFormat = preferences.use24HourFormat,
                                             onAlarmClick = { alarm ->
                                                 navController.navigate("add_edit?alarmId=${alarm.id}")
                                             },
@@ -250,14 +252,14 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                     AppDestination.SETTINGS -> {
-                                        val preferences by settingsViewModel.preferences.collectAsState()
                                         SettingsScreen(
                                             preferences = preferences,
                                             onMissionAudioChange = { settingsViewModel.updateMissionAudioBehavior(it) },
                                             onEscapeModeChange = { settingsViewModel.updateEscapePreventionMode(it) },
                                             onVolumeEscalationChange = { settingsViewModel.updateVolumeEscalation(it) },
                                             onDefaultMissionChange = { settingsViewModel.updateDefaultMissionType(it) },
-                                            onMaxSnoozeChange = { settingsViewModel.updateMaxSnoozeCount(it) }
+                                            onMaxSnoozeChange = { settingsViewModel.updateMaxSnoozeCount(it) },
+                                            onTimeFormatChange = { settingsViewModel.updateUse24HourFormat(it) }
                                         )
                                     }
                                 }
@@ -276,11 +278,11 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     null
                                 }
-                                val preferences by settingsViewModel.preferences.collectAsState()
 
                                 AddEditAlarmScreen(
                                     alarm = alarmToEdit,
                                     defaultMissionType = preferences.defaultMissionType,
+                                    use24HourFormat = preferences.use24HourFormat,
                                     onSave = { alarm ->
                                         if (alarmId != -1) {
                                             viewModel.update(alarm)
@@ -289,12 +291,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                         navController.popBackStack()
 
-                                        val formattedTime = String.format(
-                                            "%d:%02d %s",
-                                            if (alarm.hour % 12 == 0) 12 else alarm.hour % 12,
-                                            alarm.minute,
-                                            if (alarm.hour < 12) "AM" else "PM"
-                                        )
+                                        val formattedTime = formatAlarmTime(alarm, preferences.use24HourFormat)
                                         val timeUntil = com.infusion.sleepifyoucan.utils.getTimeUntilAlarm(
                                             alarm.hour,
                                             alarm.minute,
@@ -499,6 +496,7 @@ private data class SpecialStartupPermissionRequest(
 @Composable
 fun AlarmListScreen(
     viewModel: AlarmViewModel,
+    use24HourFormat: Boolean,
     onAlarmClick: (Alarm) -> Unit,
     onAddAlarmClick: () -> Unit
 ) {
@@ -562,6 +560,7 @@ fun AlarmListScreen(
                 if (nextAlarm != null) {
                     NextAlarmCard(
                         alarm = nextAlarm,
+                        use24HourFormat = use24HourFormat,
                         onClick = { onAlarmClick(nextAlarm) },
                         onToggle = { viewModel.toggleEnabled(nextAlarm) }
                     )
@@ -582,6 +581,7 @@ fun AlarmListScreen(
             items(sortedAlarms, key = { it.id }) { alarm ->
                 AlarmItemCard(
                     alarm = alarm,
+                    use24HourFormat = use24HourFormat,
                     onClick = { onAlarmClick(alarm) },
                     onToggle = { viewModel.toggleEnabled(alarm) },
                     onDelete = { deleteTarget = alarm }
@@ -666,6 +666,7 @@ private fun EmptyAlarmState(onAddAlarmClick: () -> Unit) {
 @Composable
 private fun NextAlarmCard(
     alarm: Alarm,
+    use24HourFormat: Boolean,
     onClick: () -> Unit,
     onToggle: () -> Unit
 ) {
@@ -697,7 +698,7 @@ private fun NextAlarmCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = formatAlarmTime(alarm),
+                        text = formatAlarmTime(alarm, use24HourFormat),
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary
@@ -736,6 +737,7 @@ private fun NextAlarmCard(
 @Composable
 fun AlarmItemCard(
     alarm: Alarm,
+    use24HourFormat: Boolean,
     onClick: () -> Unit,
     onToggle: () -> Unit,
     onDelete: () -> Unit
@@ -753,7 +755,7 @@ fun AlarmItemCard(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = formatAlarmTime(alarm),
+                        text = formatAlarmTime(alarm, use24HourFormat),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = if (alarm.isEnabled) TextPrimary else TextDisabled
@@ -904,8 +906,17 @@ private fun missionAccentSoft(missionType: MissionType) = when (missionType) {
     MissionType.BARCODE -> AccentRedSoft
 }
 
-private fun formatAlarmTime(alarm: Alarm): String {
-    return String.format("%02d:%02d", alarm.hour, alarm.minute)
+private fun formatAlarmTime(alarm: Alarm, use24HourFormat: Boolean): String {
+    return if (use24HourFormat) {
+        String.format("%02d:%02d", alarm.hour, alarm.minute)
+    } else {
+        String.format(
+            "%d:%02d %s",
+            if (alarm.hour % 12 == 0) 12 else alarm.hour % 12,
+            alarm.minute,
+            if (alarm.hour < 12) "AM" else "PM"
+        )
+    }
 }
 
 fun checkExactAlarmPermission(context: Context): Boolean {

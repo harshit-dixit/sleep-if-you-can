@@ -55,4 +55,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             repository.updateDefaultMissionType(type)
         }
     }
+
+    fun updateUse24HourFormat(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.updateUse24HourFormat(enabled)
+        }
+    }
 }
