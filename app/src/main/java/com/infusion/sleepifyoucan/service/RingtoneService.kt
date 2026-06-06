@@ -12,12 +12,12 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.infusion.sleepifyoucan.AlarmActivity
 import com.infusion.sleepifyoucan.R
@@ -119,14 +119,23 @@ class RingtoneService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopSelf()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_STOP -> {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_START -> Unit
+            else -> {
+                Log.w("RingtoneService", "Ignoring service start without a valid alarm action.")
+                stopSelf(startId)
+                return START_NOT_STICKY
+            }
         }
 
         createNotificationChannel()
+        stopCurrentAlarm()
 
-        val alarmId = intent?.getIntExtra("ALARM_ID", 0) ?: 0
+        val alarmId = intent.getIntExtra("ALARM_ID", 0)
         resetForNewAlarm(alarmId)
         lastInteractionTime = 0L // reset interaction time
 
@@ -139,20 +148,20 @@ class RingtoneService : Service() {
             }
         }
 
-        val ringtoneUriString = intent?.getStringExtra("RINGTONE_URI")
-        val alarmSoundString = intent?.getStringExtra("ALARM_SOUND")
+        val ringtoneUriString = intent.getStringExtra("RINGTONE_URI")
+        val alarmSoundString = intent.getStringExtra("ALARM_SOUND")
         val alarmSound = try {
             AlarmSound.valueOf(alarmSoundString ?: "DEFAULT")
         } catch (e: Exception) {
             AlarmSound.DEFAULT
         }
-        isVibrate = intent?.getBooleanExtra("IS_VIBRATE", true) ?: true
+        isVibrate = intent.getBooleanExtra("IS_VIBRATE", true)
 
         // Prepare Activity Intent
         val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION)
             // Forward extras to Activity
-            intent?.extras?.let { putExtras(it) }
+            intent.extras?.let { putExtras(it) }
         }
         
         val pendingIntent = PendingIntent.getActivity(
@@ -178,67 +187,51 @@ class RingtoneService : Service() {
 
         startAlarm(ringtoneUriString, alarmSound)
         startVolumeEnforcement()
-        
-        // --- CRITICAL FIX: The Background Start Trap ---
-        if (Settings.canDrawOverlays(this)) {
-            // Plan A: Force the Activity open (Alarmy Style)
-            // We can do this because we have the overlay permission!
-            try {
-                startActivity(fullScreenIntent)
-            } catch (e: Exception) {
-                // Fallback just in case
-                e.printStackTrace()
-            }
-        } else {
-            // Plan B: Android Standard (Heads-up Notification)
-            // We ALREADY set setFullScreenIntent on the notification above.
-            // That will show the Heads-up notification which users can tap.
-            // If the screen is off, it *might* still show the activity depending on OS/Device,
-            // but we can't force startExecutor without the permission.
-        }
 
-        return START_STICKY
+        return START_REDELIVER_INTENT
     }
 
     private fun startAlarm(ringtoneUriString: String?, alarmSound: AlarmSound) {
-        try {
-            // Select alarm sound based on AlarmSound enum
-            val alarmUri: Uri = when {
-                ringtoneUriString != null -> Uri.parse(ringtoneUriString)
-                else -> getAlarmSoundUri(alarmSound)
-            }
+        val alarmUris = buildList {
+            ringtoneUriString?.let { add(Uri.parse(it)) }
+            add(getAlarmSoundUri(alarmSound))
+        }.distinct()
 
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(this@RingtoneService, alarmUri)
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                isLooping = true
-                prepare()
-                // Start with lower volume for escalation
-                setVolume(0.3f, 0.3f)
-                start()
-            }
+        val started = alarmUris.any { uri -> tryStartMediaPlayer(uri) }
+        if (!started) {
+            Log.e("RingtoneService", "Unable to start any alarm sound; vibration only.")
+        }
 
-            startVibration()
+        startVibration()
+    }
 
+    private fun tryStartMediaPlayer(alarmUri: Uri): Boolean {
+        val player = MediaPlayer()
+        return try {
+            player.setDataSource(this@RingtoneService, alarmUri)
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            player.isLooping = true
+            player.prepare()
+            player.setVolume(0.3f, 0.3f)
+            player.start()
+            mediaPlayer = player
+            true
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("RingtoneService", "Unable to play alarm URI: $alarmUri", e)
+            player.release()
+            false
         }
     }
 
     private fun startVibration() {
         if (isVibrate && !isVibrating) {
             val vibrationPattern = longArrayOf(0, 500, 500) // Wait 0, Vibrate 500, Sleep 500
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createWaveform(vibrationPattern, 0))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(vibrationPattern, 0)
-            }
+            vibrator?.vibrate(VibrationEffect.createWaveform(vibrationPattern, 0))
             isVibrating = true
         }
     }
@@ -258,7 +251,7 @@ class RingtoneService : Service() {
     private fun startVolumeEnforcement() {
         volumeJob = scope.launch {
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM).coerceAtLeast(1)
             
             // Volume escalation: gradually increase volume over 30 seconds
             val escalationDurationMs = 30000L // 30 seconds
@@ -343,30 +336,44 @@ class RingtoneService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        volumeJob?.cancel()
+        stopCurrentAlarm()
         scope.cancel() // Cancel all coroutines
-        
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
-        vibrator?.cancel()
         
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
     }
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(
-                CHANNEL_ID,
-                "Alarm Service Channel",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                setSound(null, null) // Sound is handled by MediaPlayer
-                enableVibration(false) // Vibration handled by Vibrator
+    private fun stopCurrentAlarm() {
+        volumeJob?.cancel()
+        volumeJob = null
+
+        mediaPlayer?.let { player ->
+            try {
+                if (player.isPlaying) {
+                    player.stop()
+                }
+                Unit
+            } catch (e: Exception) {
+                Log.w("RingtoneService", "Unable to stop media player cleanly.", e)
+            } finally {
+                player.release()
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(serviceChannel)
         }
+        mediaPlayer = null
+        stopVibration()
+    }
+
+    private fun createNotificationChannel() {
+        val serviceChannel = NotificationChannel(
+            CHANNEL_ID,
+            "Alarm Service Channel",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            setSound(null, null) // Sound is handled by MediaPlayer
+            enableVibration(false) // Vibration handled by Vibrator
+        }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(serviceChannel)
     }
 }

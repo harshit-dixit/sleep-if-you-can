@@ -14,7 +14,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import android.os.Build
 import android.os.Parcelable
+import android.view.HapticFeedbackConstants
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -62,7 +64,7 @@ fun MathMissionScreen(
     // Trigger shake animation on error
     LaunchedEffect(isError) {
         if (isError) {
-            view.performHapticFeedback(android.view.HapticFeedbackConstants.REJECT)
+            view.performHapticFeedback(rejectHapticFeedback())
             flashColor = DustyRose.copy(alpha = 0.4f)
             shakeOffset.animateTo(
                 targetValue = 0f,
@@ -84,7 +86,7 @@ fun MathMissionScreen(
     // Trigger success flash
     LaunchedEffect(showSuccess) {
         if (showSuccess) {
-            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+            view.performHapticFeedback(confirmHapticFeedback())
             flashColor = Sage.copy(alpha = 0.4f)
             kotlinx.coroutines.delay(300)
             flashColor = Clear
@@ -291,5 +293,21 @@ fun generateOneMathProblem(difficultyName: String): MathProblem {
         val max = maxOf(a, b)
         val min = minOf(a, b)
         MathProblem("$max - $min", max - min)
+    }
+}
+
+private fun rejectHapticFeedback(): Int {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        HapticFeedbackConstants.REJECT
+    } else {
+        HapticFeedbackConstants.LONG_PRESS
+    }
+}
+
+private fun confirmHapticFeedback(): Int {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        HapticFeedbackConstants.CONFIRM
+    } else {
+        HapticFeedbackConstants.KEYBOARD_TAP
     }
 }

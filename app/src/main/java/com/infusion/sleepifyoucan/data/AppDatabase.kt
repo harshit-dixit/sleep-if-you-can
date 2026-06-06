@@ -30,7 +30,6 @@ abstract class AppDatabase : RoomDatabase() {
                     "sleep_if_you_can_db"
                 )
                 .addMigrations(MIGRATION_5_6)
-                .fallbackToDestructiveMigration() // Reset DB for schema changes
                 .build()
                 INSTANCE = instance
                 instance

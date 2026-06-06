@@ -1,10 +1,12 @@
 package com.infusion.sleepifyoucan
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
@@ -75,6 +77,7 @@ class AlarmActivity : ComponentActivity() {
         }
         val alarmScheduler = AlarmScheduler(this)
         val userPreferencesRepository = UserPreferencesRepository(applicationContext)
+        val initialSnoozeCount = intent.getIntExtra("SNOOZE_COUNT", 0)
         
         AlarmRingingViewModel.Factory(
             AlarmRepository(app.database.alarmDao(), alarmScheduler),
@@ -83,6 +86,7 @@ class AlarmActivity : ComponentActivity() {
             userPreferencesRepository,
             alarmId,
             missionConfig,
+            initialSnoozeCount,
             this
         )
     }
@@ -190,11 +194,12 @@ class AlarmActivity : ComponentActivity() {
         if (
             !alarmFlowSettled &&
             escapePreventionMode != EscapePreventionMode.OFF &&
-            missionState !is MissionState.Completed &&
-            missionState !is MissionState.Initial
+            missionState !is MissionState.Completed
         ) {
             val alarmId = intent.getIntExtra("ALARM_ID", 0)
-            RingtoneService.recordEscape(alarmId)
+            if (missionState !is MissionState.Initial) {
+                RingtoneService.recordEscape(alarmId)
+            }
             
             // Re-launch the activity to bring user back
             Handler(Looper.getMainLooper()).postDelayed({
@@ -369,12 +374,12 @@ fun InitialAlarmScreen(
                             // Haptic feedback tick every 500ms
                             val tickCount = elapsed / 500
                             if (tickCount > lastTick) {
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                                 lastTick = tickCount
                             }
                             
                             if (progress >= 1f) {
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                                view.performHapticFeedback(confirmHapticFeedback())
                                 onDismissClick()
                                 break
                             }
@@ -479,4 +484,12 @@ fun InitialAlarmScreen(
             
             Spacer(modifier = Modifier.height(48.dp))
         }
+}
+
+private fun confirmHapticFeedback(): Int {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        HapticFeedbackConstants.CONFIRM
+    } else {
+        HapticFeedbackConstants.LONG_PRESS
+    }
 }

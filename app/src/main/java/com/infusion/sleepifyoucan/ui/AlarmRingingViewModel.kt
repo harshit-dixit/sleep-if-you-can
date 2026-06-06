@@ -66,7 +66,8 @@ class AlarmRingingViewModel(
     private val alarmScheduler: AlarmScheduler,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val alarmId: Int,
-    private val missionConfig: MissionConfig
+    private val missionConfig: MissionConfig,
+    initialSnoozeCount: Int = 0
 ) : ViewModel() {
 
     private val _missionState = savedStateHandle.getStateFlow<MissionState>(
@@ -75,7 +76,7 @@ class AlarmRingingViewModel(
     )
     val missionState: StateFlow<MissionState> = _missionState
 
-    private val _snoozeCount = savedStateHandle.getStateFlow("snooze_count", 0)
+    private val _snoozeCount = savedStateHandle.getStateFlow("snooze_count", initialSnoozeCount)
     val snoozeCount: StateFlow<Int> = _snoozeCount
 
     private val _events = MutableSharedFlow<AlarmEvent>(extraBufferCapacity = 1)
@@ -166,10 +167,11 @@ class AlarmRingingViewModel(
                 if (currentSnoozeCount >= prefs.maxSnoozeCount) return@launch
 
                 val alarm = alarmRepository.getAlarmById(alarmId) ?: return@launch
-                val durationMillis = (alarm.snoozeDuration.toLong() + currentSnoozeCount) * 60_000L
+                val nextSnoozeCount = currentSnoozeCount + 1
+                val durationMillis = alarm.snoozeDuration.toLong() * 60_000L
 
-                alarmScheduler.scheduleSnooze(alarm, durationMillis)
-                savedStateHandle["snooze_count"] = currentSnoozeCount + 1
+                alarmScheduler.scheduleSnooze(alarm, durationMillis, nextSnoozeCount)
+                savedStateHandle["snooze_count"] = nextSnoozeCount
                 _events.emit(AlarmEvent.SnoozeAndFinish(durationMillis))
             } catch (e: Exception) {
                 android.util.Log.e("AlarmRingingViewModel", "Failed to schedule snooze", e)
@@ -212,6 +214,7 @@ class AlarmRingingViewModel(
         private val userPreferencesRepository: UserPreferencesRepository,
         private val alarmId: Int,
         private val missionConfig: MissionConfig,
+        private val initialSnoozeCount: Int,
         owner: androidx.savedstate.SavedStateRegistryOwner,
         defaultArgs: android.os.Bundle? = null
     ) : androidx.lifecycle.AbstractSavedStateViewModelFactory(owner, defaultArgs) {
@@ -229,7 +232,8 @@ class AlarmRingingViewModel(
                     alarmScheduler,
                     userPreferencesRepository,
                     alarmId,
-                    missionConfig
+                    missionConfig,
+                    initialSnoozeCount
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

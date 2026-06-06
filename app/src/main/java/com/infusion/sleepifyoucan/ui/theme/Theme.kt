@@ -49,14 +49,15 @@ private val SleepDarkColorScheme = darkColorScheme(
 
 @Composable
 fun SleepIfYouCanTheme(
-    darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
+            @Suppress("DEPRECATION")
             window.statusBarColor = Canvas.toArgb()
+            @Suppress("DEPRECATION")
             window.navigationBarColor = Canvas.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false

@@ -1,7 +1,6 @@
 package com.infusion.sleepifyoucan.utils
 
 import android.app.Activity
-import android.os.Build
 
 /**
  * Helper for "Evil Mode" - Lock Task mode that prevents users from leaving
@@ -13,7 +12,7 @@ object EvilModeHelper {
      * Check if Evil Mode (Lock Task) is available on this device.
      */
     fun isEvilModeAvailable(): Boolean {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+        return true
     }
     
     /**
@@ -21,14 +20,12 @@ object EvilModeHelper {
      * Requires the app to be set as Device Owner or user to confirm screen pinning.
      */
     fun startEvilMode(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            try {
-                activity.startLockTask()
-            } catch (e: Exception) {
-                // Lock task not available - user hasn't enabled screen pinning
-                // or app is not device owner
-                e.printStackTrace()
-            }
+        try {
+            activity.startLockTask()
+        } catch (e: Exception) {
+            // Lock task not available - user hasn't enabled screen pinning
+            // or app is not device owner
+            e.printStackTrace()
         }
     }
     
@@ -36,12 +33,10 @@ object EvilModeHelper {
      * Stop Evil Mode - releases the task lock.
      */
     fun stopEvilMode(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            try {
-                activity.stopLockTask()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+        try {
+            activity.stopLockTask()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
     

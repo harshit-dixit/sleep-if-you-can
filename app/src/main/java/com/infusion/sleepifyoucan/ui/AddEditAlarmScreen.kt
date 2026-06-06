@@ -1,7 +1,9 @@
 package com.infusion.sleepifyoucan.ui
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.RingtoneManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -72,6 +74,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import com.infusion.sleepifyoucan.data.Alarm
 import com.infusion.sleepifyoucan.data.Difficulty
@@ -151,6 +154,14 @@ fun AddEditAlarmScreen(
         com.journeyapps.barcodescanner.ScanContract()
     ) { result ->
         result.contents?.let { barcodeValue = it }
+    }
+
+    val barcodePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            barcodeLauncher.launch(barcodeRegistrationOptions())
+        }
     }
 
     val ringtoneLauncher = rememberLauncherForActivityResult(
@@ -502,13 +513,16 @@ fun AddEditAlarmScreen(
                         }
                         Button(
                             onClick = {
-                                val options = com.journeyapps.barcodescanner.ScanOptions().apply {
-                                    setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.ALL_CODE_TYPES)
-                                    setPrompt("Scan the code you must use to dismiss this alarm")
-                                    setBeepEnabled(true)
-                                    setOrientationLocked(false)
+                                if (
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.CAMERA
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    barcodeLauncher.launch(barcodeRegistrationOptions())
+                                } else {
+                                    barcodePermissionLauncher.launch(Manifest.permission.CAMERA)
                                 }
-                                barcodeLauncher.launch(options)
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Coral),
                             shape = RoundedCornerShape(12.dp)
@@ -794,6 +808,15 @@ fun getMissionType(config: MissionConfig?): MissionType {
 
 fun missionTypeFromName(name: String): MissionType {
     return runCatching { MissionType.valueOf(name) }.getOrDefault(MissionType.SHAKE)
+}
+
+private fun barcodeRegistrationOptions(): com.journeyapps.barcodescanner.ScanOptions {
+    return com.journeyapps.barcodescanner.ScanOptions().apply {
+        setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.ALL_CODE_TYPES)
+        setPrompt("Scan the code you must use to dismiss this alarm")
+        setBeepEnabled(true)
+        setOrientationLocked(false)
+    }
 }
 
 @Composable

@@ -1,6 +1,7 @@
 package com.infusion.sleepifyoucan
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.AlarmManager
 import android.content.ActivityNotFoundException
@@ -10,7 +11,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
@@ -67,6 +67,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -118,6 +119,7 @@ import com.infusion.sleepifyoucan.ui.theme.TextSecondary
 import com.infusion.sleepifyoucan.ui.theme.TextTertiary
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
@@ -156,6 +158,12 @@ class MainActivity : ComponentActivity() {
         val database = (application as SleepApplication).database
         val alarmRepository = AlarmRepository(database.alarmDao(), AlarmScheduler(this))
         val streakRepository = StreakRepository(database.streakDao(), this)
+
+        lifecycleScope.launch {
+            if (hasExactAlarmPermission()) {
+                alarmRepository.rescheduleEnabledAlarms()
+            }
+        }
 
         setContent {
             SleepIfYouCanTheme {
@@ -352,6 +360,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @SuppressLint("InlinedApi")
     private fun nextSpecialStartupPermissionRequest(): SpecialStartupPermissionRequest? {
         return listOfNotNull(
             if (!hasExactAlarmPermission()) {
@@ -374,28 +383,6 @@ class MainActivity : ComponentActivity() {
             } else {
                 null
             },
-            if (!Settings.canDrawOverlays(this)) {
-                SpecialStartupPermissionRequest(
-                    StartupSpecialPermission.OVERLAY,
-                    Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                )
-            } else {
-                null
-            },
-            if (!isIgnoringBatteryOptimizations()) {
-                SpecialStartupPermissionRequest(
-                    StartupSpecialPermission.BATTERY_OPTIMIZATION,
-                    Intent(
-                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                        Uri.parse("package:$packageName")
-                    )
-                )
-            } else {
-                null
-            }
         ).firstOrNull { it.type !in attemptedSpecialPermissions }
     }
 
@@ -407,9 +394,6 @@ class MainActivity : ComponentActivity() {
             add(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            add(Manifest.permission.CAMERA)
-        }
     }
 
     private fun buildStartupPermissionUiState(): StartupPermissionUiState {
@@ -437,24 +421,6 @@ class MainActivity : ComponentActivity() {
                     isGranted = hasFullScreenIntentPermission(),
                     accentColor = AccentGreen
                 ),
-                StartupPermissionUiItem(
-                    title = "Display over apps",
-                    description = "Helps force the alarm mission to the front.",
-                    isGranted = Settings.canDrawOverlays(this),
-                    accentColor = AccentRed
-                ),
-                StartupPermissionUiItem(
-                    title = "Battery optimization",
-                    description = "Prevents power saving from delaying alarm work.",
-                    isGranted = isIgnoringBatteryOptimizations(),
-                    accentColor = AccentYellow
-                ),
-                StartupPermissionUiItem(
-                    title = "Camera",
-                    description = "Needed for barcode wake-up missions.",
-                    isGranted = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED,
-                    accentColor = AccentBlue
-                )
             )
         )
     }
@@ -471,11 +437,6 @@ class MainActivity : ComponentActivity() {
         return notificationManager.canUseFullScreenIntent()
     }
 
-    private fun isIgnoringBatteryOptimizations(): Boolean {
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        return powerManager.isIgnoringBatteryOptimizations(packageName)
-    }
-
     private fun refreshStartupPermissions() {
         permissionRefreshKey++
     }
@@ -483,9 +444,7 @@ class MainActivity : ComponentActivity() {
 
 private enum class StartupSpecialPermission {
     EXACT_ALARM,
-    FULL_SCREEN_INTENT,
-    OVERLAY,
-    BATTERY_OPTIMIZATION
+    FULL_SCREEN_INTENT
 }
 
 private data class SpecialStartupPermissionRequest(
@@ -908,9 +867,10 @@ private fun missionAccentSoft(missionType: MissionType) = when (missionType) {
 
 private fun formatAlarmTime(alarm: Alarm, use24HourFormat: Boolean): String {
     return if (use24HourFormat) {
-        String.format("%02d:%02d", alarm.hour, alarm.minute)
+        String.format(Locale.ROOT, "%02d:%02d", alarm.hour, alarm.minute)
     } else {
         String.format(
+            Locale.ROOT,
             "%d:%02d %s",
             if (alarm.hour % 12 == 0) 12 else alarm.hour % 12,
             alarm.minute,
@@ -919,14 +879,18 @@ private fun formatAlarmTime(alarm: Alarm, use24HourFormat: Boolean): String {
     }
 }
 
+@SuppressLint("InlinedApi")
 fun checkExactAlarmPermission(context: Context): Boolean {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         if (!alarmManager.canScheduleExactAlarms()) {
             val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                data = Uri.parse("package:${context.packageName}")
             }
-            context.startActivity(intent)
+            runCatching {
+                context.startActivity(intent)
+            }
             return false
         }
     }

@@ -36,6 +36,12 @@ class AlarmRepository(
         update(newAlarm)
     }
 
+    suspend fun rescheduleEnabledAlarms() {
+        alarmDao.getEnabledAlarms().forEach { alarm ->
+            alarmScheduler.schedule(alarm)
+        }
+    }
+
     suspend fun getAlarmById(id: Int): Alarm? {
         return alarmDao.getAlarmById(id)
     }

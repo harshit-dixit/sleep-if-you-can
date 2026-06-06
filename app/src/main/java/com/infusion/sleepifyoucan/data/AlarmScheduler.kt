@@ -12,7 +12,6 @@ import com.infusion.sleepifyoucan.AlarmReceiver
 class AlarmScheduler(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    private val gson = Gson()
 
     fun schedule(alarm: Alarm) {
         // 1. Calculate next trigger time
@@ -22,15 +21,19 @@ class AlarmScheduler(private val context: Context) {
         scheduleExact(alarm, triggerTime, isSnooze = false)
     }
 
-    fun scheduleSnooze(alarm: Alarm, durationMillis: Long) {
+    fun scheduleSnooze(alarm: Alarm, durationMillis: Long, snoozeCount: Int) {
         val triggerTime = System.currentTimeMillis() + durationMillis
-        scheduleExact(alarm, triggerTime, isSnooze = true)
+        scheduleExact(alarm, triggerTime, isSnooze = true, snoozeCount = snoozeCount)
     }
 
-    private fun scheduleExact(alarm: Alarm, triggerTime: Long, isSnooze: Boolean) {
+    private fun scheduleExact(
+        alarm: Alarm,
+        triggerTime: Long,
+        isSnooze: Boolean,
+        snoozeCount: Int = 0
+    ) {
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             // PACK DATA: Serialize critical info into extras
-            putExtra("ALARM_ID", alarm.id)
             putExtra("ALARM_ID", alarm.id)
             putExtra("MISSION_CONFIG_JSON", Converters().fromMissionConfig(alarm.missionConfig))
             // Note: We use the helper directly. 
@@ -40,6 +43,7 @@ class AlarmScheduler(private val context: Context) {
             putExtra("LABEL", alarm.label)
             putExtra("ALARM_SOUND", alarm.alarmSound.name)
             putExtra("IS_SNOOZE", isSnooze)
+            putExtra("SNOOZE_COUNT", snoozeCount)
             putExtra("IS_VIBRATE", alarm.isVibrate)
             putExtra("IS_SNOOZE_ENABLED", alarm.isSnoozeEnabled)
             putExtra("SNOOZE_DURATION", alarm.snoozeDuration)
@@ -55,23 +59,18 @@ class AlarmScheduler(private val context: Context) {
 
         Log.d("AlarmScheduler", "Scheduling alarm ${alarm.id} for: $triggerTime (Snooze: $isSnooze)")
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (alarmManager.canScheduleExactAlarms()) {
-                 alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerTime,
-                    pendingIntent
-                )
-            } else {
-                Log.e("AlarmScheduler", "Permission for exact alarms missing.")
-                // Ideally show UI to user, but here we just fail/log
-            }
-        } else {
-             alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerTime,
+        if (!canScheduleExactAlarms()) {
+            Log.e("AlarmScheduler", "Permission for exact alarms missing.")
+            return
+        }
+
+        try {
+            alarmManager.setAlarmClock(
+                AlarmManager.AlarmClockInfo(triggerTime, createShowIntent(alarm)),
                 pendingIntent
             )
+        } catch (e: SecurityException) {
+            Log.e("AlarmScheduler", "Unable to schedule exact alarm ${alarm.id}", e)
         }
     }
 
@@ -85,6 +84,22 @@ class AlarmScheduler(private val context: Context) {
         )
         alarmManager.cancel(pendingIntent)
         Log.d("AlarmScheduler", "Cancelled alarm ${alarm.id}")
+    }
+
+    private fun canScheduleExactAlarms(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+    }
+
+    private fun createShowIntent(alarm: Alarm): PendingIntent {
+        val showIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        return PendingIntent.getActivity(
+            context,
+            alarm.id,
+            showIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
     
 }

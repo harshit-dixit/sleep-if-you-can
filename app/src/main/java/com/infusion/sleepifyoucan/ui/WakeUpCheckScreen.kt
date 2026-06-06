@@ -23,18 +23,13 @@ fun WakeUpCheckScreen(
     onWakeUpConfirmed: () -> Unit
 ) {
     var timeLeft by remember { mutableIntStateOf(5) }
-    var isCountingDown by remember { mutableStateOf(false) }
     
     // Start countdown when screen appears
     LaunchedEffect(Unit) {
-        isCountingDown = true
         for (i in 5 downTo 0) {
             timeLeft = i
             if (i > 0) {
                 delay(1000)
-            } else {
-                // Auto-confirm after countdown
-                onWakeUpConfirmed()
             }
         }
     }
@@ -119,22 +114,25 @@ fun WakeUpCheckScreen(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Manual confirm button (optional)
-            OutlinedButton(
-                onClick = onWakeUpConfirmed,
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Terracotta
-                )
-            ) {
-                Text("I'm Awake!")
-            }
         } else {
             Text(
-                text = "Confirmed! Turning off alarm...",
+                text = "Now confirm you are awake.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = Sage,
                 textAlign = TextAlign.Center
             )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onWakeUpConfirmed,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Sage,
+                    contentColor = Charcoal
+                )
+            ) {
+                Text("I'm Awake")
+            }
         }
         
         Spacer(modifier = Modifier.height(32.dp))
