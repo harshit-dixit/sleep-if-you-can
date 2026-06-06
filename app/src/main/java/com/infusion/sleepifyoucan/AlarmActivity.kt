@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
@@ -189,7 +190,8 @@ class AlarmActivity : ComponentActivity() {
         if (
             !alarmFlowSettled &&
             escapePreventionMode != EscapePreventionMode.OFF &&
-            missionState !is MissionState.Completed
+            missionState !is MissionState.Completed &&
+            missionState !is MissionState.Initial
         ) {
             val alarmId = intent.getIntExtra("ALARM_ID", 0)
             RingtoneService.recordEscape(alarmId)
@@ -200,12 +202,16 @@ class AlarmActivity : ComponentActivity() {
                     val relaunchIntent = Intent(this, AlarmActivity::class.java).apply {
                         addFlags(
                             Intent.FLAG_ACTIVITY_NEW_TASK or
-                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_ACTIVITY_NO_USER_ACTION
                         )
                         intent.extras?.let { putExtras(it) }
                     }
-                    startActivity(relaunchIntent)
+                    try {
+                        startActivity(relaunchIntent)
+                    } catch (e: Exception) {
+                        Log.w("AlarmActivity", "Unable to relaunch alarm activity", e)
+                    }
                 }
             }, 500)
         }
